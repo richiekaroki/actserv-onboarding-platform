@@ -1,0 +1,47 @@
++-------------------------+
+|         Form            |
+|-------------------------|
+| id (PK)                 |
+| name                    |
+| description             |
+| schema (JSON)           |
+| created_at              |
++-------------------------+
+           |
+           | 1 → *
+           v
++-------------------------+
+|         Field           |
+|-------------------------|
+| id (PK)                 |
+| form_id (FK)            |
+| label                   |
+| type (text/number/...)  |
+| options                 |
+| required (bool)         |
+| validation_rules (JSON) |
++-------------------------+
+
+           |
+           | 1 → *
+           v
++-------------------------+
+|      Submission         |
+|-------------------------|
+| id (PK)                 |
+| form_id (FK)            |
+| client_id (optional)    |
+| responses (JSON)        |
+| submitted_at            |
++-------------------------+
+           |
+           | 1 → *
+           v
++-------------------------+
+|      FileUpload         |
+|-------------------------|
+| id (PK)                 |
+| submission_id (FK)      |
+| file_path               |
+| uploaded_at             |
++-------------------------+

@@ -1,0 +1,30 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# ACTSERV Onboarding Platform
+# Django + Next.js + Docker
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+.venv/
+
+# Node.js
+node_modules/
+.next/
+npm-debug.log*
+
+# Environment & Secrets
+.env*
+*.pem
+
+# Development
+.DS_Store
+*.log
+media/
+staticfiles/
+
+# Docker
+.docker/
