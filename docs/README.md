@@ -22,6 +22,7 @@ Dev Tools: ESLint, TypeScript, Hot Reload
 1. Clone the repository
 
 git clone https://github.com/YOUR_USERNAME/actserv-onboarding-platform.git
+
 cd actserv-onboarding-platform
 
 2. Build & start services
