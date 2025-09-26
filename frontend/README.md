@@ -13,6 +13,7 @@ Welcome to the **Actserv Onboarding Platform** — a modern onboarding solution 
 
 For full setup instructions, development workflow, and project details, see:  
 👉 [docs/README.md](docs/README.md)
+[docs/README.md](docs/Entity Relationship Diagram (ERD).txt)
 
 ---
 

@@ -6,6 +6,7 @@ from django.http import JsonResponse
 from django.urls import include, path
 
 
+# Simple health check endpoint
 def health_check(request):
     return JsonResponse({
         "status": "ok",
@@ -14,6 +15,7 @@ def health_check(request):
     })
 
 
+# URL patterns
 urlpatterns = [
     path("", health_check, name="health_check"),
     path("admin/", admin.site.urls),
