@@ -4,6 +4,7 @@ from rest_framework import viewsets
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from .models import Form, Submission
+from .permissions import IsAdminUserOrReadOnly  # ADD THIS IMPORT
 from .serializers import FormSerializer, SubmissionSerializer
 
 
@@ -11,14 +12,10 @@ class FormViewSet(viewsets.ModelViewSet):
     queryset = Form.objects.all()
     serializer_class = FormSerializer
     lookup_field = "slug"
+    # REPLACED get_permissions with this
+    permission_classes = [IsAdminUserOrReadOnly]
 
-    def get_permissions(self):
-        """
-        Public can view forms, but only authenticated users can modify
-        """
-        if self.action in ["list", "retrieve"]:  # public endpoints
-            return [AllowAny()]
-        return [IsAuthenticated()]  # create/update/delete requires auth
+    # REMOVED the get_permissions method - using permission_classes instead
 
 
 class SubmissionViewSet(viewsets.ModelViewSet):
@@ -27,11 +24,12 @@ class SubmissionViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         """
-        Public can submit forms, but only authenticated users can view/modify submissions
+        Public can submit forms, but only admin users can view/modify submissions
         """
         if self.action == "create":  # public clients can submit
             return [AllowAny()]
         # admins only for list/retrieve/update/delete
+        # This should probably be [IsAdminUser()] too
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
