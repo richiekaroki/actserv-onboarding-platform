@@ -1,0 +1,118 @@
+{
+  "info": {
+    "name": "ACTSERV Onboarding API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth - Login (JWT)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"yourpassword\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8000/api/auth/login/",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["api", "auth", "login", ""]
+        }
+      }
+    },
+    {
+      "name": "Auth - Refresh Token",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"refresh\": \"<paste_refresh_token_here>\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8000/api/auth/refresh/",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["api", "auth", "refresh", ""]
+        }
+      }
+    },
+    {
+      "name": "Forms - List (Public)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "http://localhost:8000/api/forms/",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["api", "forms", ""]
+        }
+      }
+    },
+    {
+      "name": "Forms - Create (Admin only)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer <paste_access_token_here>"
+          },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"KYC Form\",\n  \"slug\": \"kyc-form\",\n  \"description\": \"Know Your Customer form\",\n  \"schema\": {\"type\": \"object\"},\n  \"is_active\": true\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8000/api/forms/",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["api", "forms", ""]
+        }
+      }
+    },
+    {
+      "name": "Submissions - List (Admin only)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer <paste_access_token_here>"
+          }
+        ],
+        "url": {
+          "raw": "http://localhost:8000/api/submissions/",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["api", "submissions", ""]
+        }
+      }
+    },
+    {
+      "name": "Submissions - Create (Public)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"form\": \"kyc-form\",\n  \"client_identifier\": \"client123\",\n  \"responses\": {\"first_name\": \"John\", \"last_name\": \"Doe\"}\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8000/api/submissions/",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["api", "submissions", ""]
+        }
+      }
+    }
+  ]
+}

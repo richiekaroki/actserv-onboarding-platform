@@ -4,7 +4,7 @@
 services:
   # PostgreSQL (optional, enable later)
   # postgres:
-  #   image: postgres:14-alpine
+  #   image: postgres:17-alpine
   #   container_name: actserv_postgres
   #   restart: unless-stopped
   #   environment:
