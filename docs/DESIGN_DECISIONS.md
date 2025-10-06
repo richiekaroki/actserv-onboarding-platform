@@ -1,122 +1,323 @@
-# Design Decisions
+# Design Decisions - ACTSERV Onboarding Platform
 
-This document explains the key design choices made for the Creative Dynamic Onboarding Form System project.  
-Each decision balances current assessment requirements with scalability, usability, and ACTSERV's long-term needs.
-
----
-
-## 1. Database Strategy: SQLite (Development) → PostgreSQL (Production)
-
-**Current Implementation:** SQLite for rapid development and assessment demonstration  
-**Production Target:** PostgreSQL for enterprise-scale deployment
-
-### Why This Approach:
-- **Development Speed**: SQLite enables quick setup and testing without external dependencies
-- **Assessment Focus**: Meets functional requirements while minimizing setup complexity
-- **Production Ready**: Architecture designed for PostgreSQL migration when scaling
-
-### Database Design:
-- **Structured Relations**: Forms → Submissions → FileUploads relationships
-- **JSONB Ready**: Field definitions use JSON format, ready for PostgreSQL JSONB optimization
-- **Migration Path**: Django ORM ensures seamless transition from SQLite to PostgreSQL
-
-### Why PostgreSQL for Production:
-- **Enterprise Features**: Transactional consistency, compliance, and scalability
-- **JSONB Support**: Efficient querying and indexing of dynamic field definitions
-- **Financial Services**: Meets data integrity requirements for regulated environments
+This document justifies key architectural choices for the dynamic form builder system.
 
 ---
 
-## 2. Field Configuration: JSON Schema
+## 1. Admin Form Configuration: JSON Schema Editor
 
-**JSON Schema** approach enables flexible, scalable form definitions without database migrations.
+**Decision:** JSON-based schema configuration in a textarea editor with real-time validation.
 
-### Benefits:
-- **No Migration Hell**: New fields can be added without database changes
-- **Conditional Validation**: JSON Schema rules support complex logic (e.g., "require income proof if loan > X")
-- **Backward Compatibility**: `schema_version` ensures old submissions remain valid
-- **Admin Usability**: Hybrid approach (JSON schema + admin UI) serves both developers and non-technical admins
+### Why This Approach?
 
-### Alternatives Considered:
-- **Relational-Only Fields**: Inflexible and migration-heavy
-- **UI-Only Builder**: Limits future extensibility and API capabilities
+**Flexibility:**
 
----
+- Supports unlimited field types without UI constraints
+- Complex validation rules (conditional requirements, file types, size limits) expressed declaratively
+- No code deployment needed to add new forms
 
-## 3. Notification Mechanism: Celery + Redis
+**Scalability for Unknown Needs:**
 
-**Celery with Redis** provides robust asynchronous task processing for notifications.
+- Assessment states: "The company expects this platform to evolve and scale but they have no clear requirements on how many forms, fields, or rules they will need."
+- JSON schema allows ANY field configuration without database migrations
+- Adding new field types requires one switch case in FormRenderer - no backend changes
 
-### Current Implementation:
-- **Redis Dependency**: Required for Celery broker (running locally)
-- **Console Emails**: Development setup uses email console backend
-- **Production Ready**: Architecture supports SMTP, SendGrid, or AWS SES
+**Version Control:**
 
-### Why Celery:
-- **Non-Blocking**: Submissions remain fast for clients
-- **Retry Capability**: Failed notifications can be automatically retried
-- **Extensible**: Easy to add SMS, Slack, webhooks in the future
+- Form definitions are text files that can be tracked in git
+- Rollback to previous schema versions trivial
+- Audit trail of all form changes
 
----
+**Developer-Friendly:**
 
-## 4. Frontend Technology: Next.js (React)
+- Financial services firms employ technical admins who understand JSON
+- Faster than clicking through UI builders for complex forms
+- Copy-paste schemas between environments
 
-**Next.js with React** delivers a modern, scalable frontend experience.
+### Why NOT Drag-and-Drop UI Builder?
 
-### Current Status:
-- **Scaffold Ready**: Next.js 15 setup complete
-- **API Integration**: Ready for form rendering and submission
-- **TypeScript Ready**: Foundation for type-safe form handling
+**Time Constraints:**
 
-### Advantages:
-- **Dynamic Form Rendering**: React components perfectly suit dynamic field types
-- **Built-in Routing**: Next.js provides clean API integration
-- **Industry Standard**: Aligns with modern web development practices
+- UI builder requires significant frontend complexity (drag handlers, field palette, live preview)
+- Would take 2-3 days to build properly
+- Assessment deadline doesn't allow this
 
----
+**Limited Extensibility:**
 
-## 5. File Storage Strategy
+- UI builders constrain what's possible to what's in the interface
+- Complex validation rules (regex patterns, conditional logic) awkward in GUI
+- JSON schema is infinitely extensible
 
-**Development-First Approach** with production migration path.
+**Over-Engineering:**
 
-### Current Implementation:
-- **Local Storage**: Django FileField with `MEDIA_ROOT` for rapid development
-- **Field Association**: Files linked to submissions with specific field keys
+- For MVP with unknown requirements, simpler is better
+- Can always add UI builder layer on top of JSON later
 
-### Production Design:
-- **Cloud Ready**: Architecture supports S3, GCP, or Azure Blob Storage
-- **Security**: Encryption and access controls for financial data compliance
-- **Scalability**: Handles large file volumes efficiently
+### Why NOT Pure API-First?
 
----
+**Poor Admin UX:**
 
-## 6. Development vs Production Architecture
+- Requires curl commands or Postman for form creation
+- No visual feedback
+- Error messages less intuitive
 
-### Development Stack (Current):
-SQLite → Django DRF → Celery/Redis → Local File Storage
+**Missing Validation:**
 
-text
+- API-only approach lacks real-time schema validation
+- Admins discover errors only after POST request fails
 
-### Production Stack (Designed):
-PostgreSQL → Django DRF → Celery/Redis → Cloud Storage (S3/Azure/GCP)
+### Implementation Details:
 
-text
+**Real-Time Validation:**
 
-### Migration Benefits:
-- **Zero Code Changes**: Django ORM abstracts database differences
-- **Proven Path**: Well-documented SQLite to PostgreSQL migration process
-- **Assessment Focus**: Functional demo without production infrastructure overhead
+- Client-side JSON.parse() with try/catch
+- Schema structure validation (required fields array, valid field types)
+- Dropdown options validation
+- Visual feedback (red/green borders, error messages)
+
+**Example Templates:**
+
+- Three pre-built schemas (Basic, KYC, Loan) loadable with one click
+- Demonstrates best practices
+- Reduces learning curve
 
 ---
 
-## 7. Summary
+## 2. Frontend Architecture: Schema-Driven Component Rendering
 
-The architecture demonstrates **pragmatic engineering** by:
+**Decision:** Single `FormRenderer` component that dynamically generates fields from JSON schema.
 
-✅ **Meeting Assessment Requirements**: Full functionality with SQLite  
-✅ **Production Ready Design**: PostgreSQL migration path built-in  
-✅ **Development Efficiency**: Rapid iteration during assessment period  
-✅ **Enterprise Scalability**: Financial services compliance and growth capacity  
+### Why This Approach?
 
-**Current Stack**: SQLite + Django + Celery + Next.js = Assessment Delivery  
-**Production Vision**: PostgreSQL + Cloud Storage = Enterprise Scaling
+**Single Source of Truth:**
+
+- Form definition lives in database as JSON
+- Frontend just interprets and renders
+- No duplication of field definitions
+
+**Maintainability:**
+
+- One component handles all field types
+- Adding new field type = one switch case
+- Bug fixes apply to all forms instantly
+
+**Type Safety:**
+
+- TypeScript interfaces define schema structure
+- Compile-time checks prevent invalid schemas
+- IDE autocomplete for schema properties
+
+### Component Architecture:
+
+Schema (JSON)
+→ FormRenderer (parser)
+→ FieldInput components (text, number, date, dropdown, checkbox, file)
+→ react-hook-form (validation)
+→ FormData submission (with files)
+
+**Benefits:**
+
+- Reusable across all forms
+- Built-in validation with react-hook-form
+- File upload handling with size/type validation
+- Conditional validation with watch()
+
+---
+
+## 3. Handling Edge Cases
+
+The assessment specifies 7 edge cases. Here's how each is handled:
+
+### 1. "Unknown and unbounded number of forms"
+
+**Solution:** Dynamic routing `/forms/[slug]` + database-driven rendering
+
+- No hardcoded form routes
+- Infinite forms supported
+- Add form via admin panel, instantly available
+
+### 2. "Fields may evolve over time; new submissions must not break old ones"
+
+**Solution:** `schema_version` field tracks changes
+
+- Each submission stores schema version it used
+- Old submissions reference their original schema
+- Backwards compatibility guaranteed
+
+### 3. "Some forms may require only 2-3 fields, others may require 20+"
+
+**Solution:** Array-based field rendering
+
+- `fields.map()` handles any array length
+- No performance issues (tested with 50+ fields)
+- Scrollable UI maintains usability
+
+### 4. "Multiple file uploads per form may be required"
+
+**Solution:** `<input type="file" multiple />`
+
+- Each file field accepts multiple files
+- Validation loops through all files (size, type checks)
+- Backend receives array of files per field key
+
+### 5. "Validation rules may differ (e.g., income proof only if loan amount > X)"
+
+**Solution:** `conditional_required` schema property
+
+```json
+{
+  "conditional_required": {
+    "depends_on": "loan_amount",
+    "operator": "gt",
+    "value": 100000,
+    "message": "Income proof required for loans above 100k"
+  }
+}
+
+react-hook-form watch() monitors dependent fields
+Real-time validation evaluation
+Supports operators: gt, gte, lt, lte, eq, ne
+
+6. "Two forms could have identical field names but different business meanings"
+Solution: Field key is unique per form + submission isolation
+
+Field key scoped to form schema
+Submissions store form reference + responses
+No naming conflicts possible
+
+7. "Optional fields should not block submissions"
+Solution: required: false default + react-hook-form validation
+
+Only explicitly required fields validated
+Empty optional fields allowed
+Clear visual indicators (asterisks for required)
+
+
+4. File Upload Strategy
+Decision: Client-side validation + server-side verification with multiple file support.
+Why Both Client and Server Validation?
+Client-Side (UX):
+
+Immediate feedback before upload
+Prevents 5MB+ files from starting upload
+File type checking (PDF, JPG, PNG, DOC, DOCX only)
+
+Server-Side (Security):
+
+Never trust client
+Re-validate file types via MIME sniffing
+Enforce storage limits
+Prevent malicious uploads
+
+Implementation:
+Frontend:
+typescriptvalidate: (files: FileList) => {
+  for (let i = 0; i < files.length; i++) {
+    if (file.size > 5MB) return "File too large";
+    if (!ALLOWED_TYPES.includes(file.type)) return "Invalid type";
+  }
+}
+Backend:
+
+FileUpload model with foreign key to Submission
+Files stored with file__<field_key> naming convention
+Media storage configured for production cloud storage migration
+
+
+5. Scalability for Unknown Future Needs
+How System Scales:
+New Form Type:
+
+Admin creates JSON schema
+Zero code changes
+Form instantly available at /forms/new-slug
+
+New Field Type (e.g., "signature pad"):
+
+Add case to FormRenderer switch statement
+Deploy frontend
+All forms can now use signature fields
+
+New Validation Rule (e.g., "regex pattern"):
+
+Extend schema interface: validation: { pattern: string }
+Add validation logic to FieldInput
+Deploy once, available to all forms
+
+New Operator for Conditional Logic:
+
+Add to evaluateConditional function
+Document in schema examples
+No database migration needed
+
+Database Design:
+Forms Table:
+
+schema (JSONB in production PostgreSQL)
+Indexed for fast queries
+Supports complex JSON queries
+
+Submissions Table:
+
+Generic responses JSONB field
+Accepts any form structure
+No ALTER TABLE for new fields
+
+FileUploads Table:
+
+Separate table for files
+Linked via foreign key to submission
+Scalable to cloud storage (S3, GCS, Azure)
+
+
+6. Technology Choices
+Frontend: Next.js 15 + TypeScript
+
+App Router for modern routing
+Server Components ready for SSR optimization
+TypeScript for type safety
+
+Form Library: react-hook-form
+
+Minimal re-renders (performance)
+Built-in validation
+Easy file handling
+
+Styling: Tailwind CSS v4
+
+Utility-first for rapid development
+Responsive by default
+Small production bundle
+
+API Client: Axios
+
+FormData support for file uploads
+Request/response interceptors for auth
+Better error handling than fetch
+
+
+7. Production Readiness
+Current (Development):
+
+SQLite database
+Local file storage
+Console email backend
+
+Production Migration Path:
+
+PostgreSQL with JSONB indexing
+AWS S3 / Azure Blob Storage
+SendGrid / AWS SES for emails
+Redis for Celery
+Docker containerization
+
+All designed into architecture from day one.
+
+Summary
+This architecture demonstrates pragmatic engineering:
+✅ Meets all assessment requirements (dynamic forms, file uploads, async notifications)
+✅ Handles all 7 edge cases explicitly
+✅ Scales for unknown future needs (no code changes for new forms)
+✅ Production-ready design (migration path documented)
+✅ Justified choices (JSON editor, schema-driven rendering, client+server validation)
+```
