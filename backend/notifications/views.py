@@ -1,3 +1,21 @@
-from django.shortcuts import render
+# backend/notifications/views.py
+from rest_framework import generics, permissions
 
-# Create your views here.
+from .models import Notification
+from .serializers import NotificationSerializer
+
+
+class NotificationListCreateView(generics.ListCreateAPIView):
+    serializer_class = NotificationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Notification.objects.filter(user=self.request.user)
+
+
+class NotificationDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = NotificationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Notification.objects.filter(user=self.request.user)

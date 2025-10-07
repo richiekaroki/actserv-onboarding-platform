@@ -1,8 +1,10 @@
-// frontend/src/app/forms/[slug]/page.tsx
+// ============================================
+// FILE 8: frontend/src/app/forms/[slug]/page.tsx
+// ============================================
 "use client";
 
 import FormRenderer from "@/components/FormRenderer";
-import { getForm, submitForm } from "@/lib/api";
+import { submitForm as apiSubmitForm, getForm } from "@/lib/api";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -30,6 +32,36 @@ export default function ClientFormPage() {
         setLoading(false);
       });
   }, [slug]);
+
+  // Create a wrapper function that returns Promise<void>
+  const handleFormSubmit = async (
+    formSlug: string,
+    textValues: Record<string, any>,
+    files: Record<string, File | File[]>
+  ): Promise<void> => {
+    try {
+      // Use form.id (UUID) instead of form.slug for the API call
+      await apiSubmitForm(form.id, textValues, files);
+
+      console.log("Form submitted successfully");
+
+      // Optional: Redirect to success page
+      // router.push('/submission-success');
+    } catch (error: any) {
+      console.error("Form submission failed:", error);
+
+      // Provide user-friendly error message
+      if (error.response?.data) {
+        throw new Error(
+          error.response.data.detail || "Submission failed. Please try again."
+        );
+      } else {
+        throw new Error(
+          "Network error. Please check your connection and try again."
+        );
+      }
+    }
+  };
 
   if (loading) {
     return (
@@ -103,7 +135,7 @@ export default function ClientFormPage() {
             <FormRenderer
               schema={form.schema}
               formSlug={form.slug}
-              onSubmit={submitForm}
+              onSubmit={handleFormSubmit}
             />
           </div>
         </div>

@@ -7,52 +7,58 @@ from django.core.mail import send_mail
 
 logger = logging.getLogger(__name__)
 
-# Task to notify admin of new form submission
-
 
 @shared_task(bind=True, max_retries=3)
 def notify_admin_new_submission(self, submission_id):
     """
-    Send notification to admin when new form submission is received
+    Comprehensive notification: Both email AND internal notifications
     """
     try:
+        from django.contrib.auth import get_user_model
         from forms.models import Submission
+
+        from .models import Notification
+
+        User = get_user_model()
         submission = Submission.objects.select_related(
             'form').get(id=submission_id)
-    except Submission.DoesNotExist:
-        logger.error(f"Submission {submission_id} not found")
-        return f"Submission {submission_id} not found"
+        form = submission.form
 
-    form = submission.form
+        # 1. CREATE INTERNAL DATABASE NOTIFICATIONS
+        admin_users = User.objects.filter(is_staff=True)
+        for user in admin_users:
+            Notification.objects.create(
+                user=user,
+                type='submission',
+                title='New Form Submission',
+                message=f'A new submission for "{form.name}" requires review',
+                related_submission=submission
+            )
 
-    # Prepare email content
-    subject = f"New {form.name} Submission Received"
+        # 2. SEND EMAIL NOTIFICATIONS
+        subject = f"New {form.name} Submission Received"
+        file_count = submission.files.count()
 
-    # Count files
-    file_count = submission.files.count()
+        message = f"""
+        A new form submission has been received:
+        
+        Form: {form.name}
+        Submission ID: {submission.id}
+        Client Identifier: {submission.client_identifier or 'Not provided'}
+        Submitted at: {submission.created_at}
+        Files attached: {file_count}
+        Schema Version: {submission.schema_version}
+        
+        Responses:
+        {format_responses(submission.responses)}
+        
+        Please review the submission in the admin dashboard.
+        """
 
-    message = f"""
-    A new form submission has been received:
-    
-    Form: {form.name}
-    Submission ID: {submission.id}
-    Client Identifier: {submission.client_identifier or 'Not provided'}
-    Submitted at: {submission.created_at}
-    Files attached: {file_count}
-    Schema Version: {submission.schema_version}
-    
-    Responses:
-    {format_responses(submission.responses)}
-    
-    Please review the submission in the admin dashboard.
-    """
+        admin_emails = getattr(settings, 'ADMIN_NOTIFICATION_EMAILS', [
+            'admin@actserv.local'
+        ])
 
-    # Get admin emails from settings
-    admin_emails = getattr(settings, 'ADMIN_NOTIFICATION_EMAILS', [
-        'admin.example@actserv-africa.com'
-    ])
-
-    try:
         send_mail(
             subject=subject,
             message=message,
@@ -62,13 +68,12 @@ def notify_admin_new_submission(self, submission_id):
             fail_silently=False
         )
 
-        logger.info(f"Notification sent for submission {submission_id}")
-        return f"Notification sent successfully for submission {submission_id}"
+        logger.info(f"Notifications sent for submission {submission_id}")
+        return f"Created {admin_users.count()} internal notifications and sent emails for submission {submission_id}"
 
     except Exception as exc:
         logger.error(
-            f"Failed to send notification for submission {submission_id}: {exc}")
-        # Retry the task
+            f"Failed to send notifications for submission {submission_id}: {exc}")
         raise self.retry(exc=exc, countdown=60)
 
 
@@ -101,7 +106,7 @@ def notify_admin_bulk_submissions(form_id, count):
         """
 
         admin_emails = getattr(settings, 'ADMIN_NOTIFICATION_EMAILS', [
-            'admin.example@actserv-africa.com'
+            'admin@actserv.local'
         ])
 
         send_mail(

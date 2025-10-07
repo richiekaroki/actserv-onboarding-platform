@@ -1,77 +1,90 @@
-// frontend/src/components/Navbar.tsx
+// ============================================
+// FILE 4: frontend/src/components/Navbar.tsx
+// ============================================
 "use client";
 
+import { getCurrentUser } from "@/lib/api";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-export default function Navbar() {
-  const pathname = usePathname();
-  const [menuOpen, setMenuOpen] = useState(false);
+export default function Navigation() {
+  const [user, setUser] = useState<any>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
-  const links = [
-    { href: "/", label: "Home" },
-    { href: "/forms/kyc-form", label: "Demo Form" },
-    { href: "/admin", label: "Admin" },
-  ];
+  useEffect(() => {
+    const currentUser = getCurrentUser();
+    const role = localStorage.getItem("user_role");
+    setUser(currentUser);
+    setUserRole(role);
+  }, []);
 
   return (
-    <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b shadow-sm">
+    <nav className="bg-white shadow-sm border-b">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center h-16">
-          <Link
-            href="/"
-            className="text-xl font-bold text-gray-800 hover:text-blue-600 transition-colors"
-          >
-            FormBuilder
-          </Link>
+          <div className="flex items-center space-x-8">
+            <Link href="/" className="text-xl font-bold text-gray-800">
+              FormBuilder
+            </Link>
 
-          {/* Desktop Nav */}
-          <div className="hidden md:flex gap-6">
-            {links.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`relative font-medium transition-colors ${
-                  pathname === link.href
-                    ? "text-blue-600"
-                    : "text-gray-600 hover:text-blue-600"
-                }`}
-              >
-                {link.label}
+            <div className="hidden md:flex space-x-6">
+              <Link href="/forms" className="text-gray-600 hover:text-gray-900">
+                Available Forms
               </Link>
-            ))}
+
+              {/* Show admin link only to admins */}
+              {userRole === "admin" && (
+                <Link
+                  href="/admin"
+                  className="text-gray-600 hover:text-gray-900"
+                >
+                  Admin Dashboard
+                </Link>
+              )}
+            </div>
           </div>
 
-          {/* Mobile Menu Button */}
-          <button
-            className="md:hidden text-gray-600 hover:text-blue-600 transition-colors font-semibold text-lg"
-            onClick={() => setMenuOpen(!menuOpen)}
-            aria-label="Toggle menu"
-          >
-            {menuOpen ? "✖" : "☰"}
-          </button>
+          <div className="flex items-center space-x-4">
+            {user ? (
+              <div className="flex items-center space-x-4">
+                <span className="text-sm text-gray-600">
+                  Welcome, {user.first_name || user.username}
+                  {userRole === "admin" && (
+                    <span className="ml-2 bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded">
+                      Admin
+                    </span>
+                  )}
+                </span>
+                <button
+                  onClick={() => {
+                    localStorage.removeItem("token");
+                    localStorage.removeItem("user");
+                    localStorage.removeItem("user_role");
+                    window.location.href = "/";
+                  }}
+                  className="text-gray-600 hover:text-gray-900 text-sm"
+                >
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <div className="flex space-x-4">
+                <Link
+                  href="/login"
+                  className="text-gray-600 hover:text-gray-900"
+                >
+                  Login
+                </Link>
+                <Link
+                  href="/register"
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                >
+                  Register
+                </Link>
+              </div>
+            )}
+          </div>
         </div>
-
-        {/* Mobile Dropdown */}
-        {menuOpen && (
-          <div className="md:hidden flex flex-col space-y-3 pb-4 border-t pt-3">
-            {links.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => setMenuOpen(false)}
-                className={`block font-medium transition-colors ${
-                  pathname === link.href
-                    ? "text-blue-600"
-                    : "text-gray-600 hover:text-blue-600"
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
-        )}
       </div>
     </nav>
   );

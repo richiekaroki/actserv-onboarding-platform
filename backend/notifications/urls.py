@@ -1,11 +1,11 @@
-# backend/notifications/urls.py
-
+# ===== backend/notifications/urls.py =====
 from django.urls import path
 
 from . import views
 
-app_name = 'notifications'
-
 urlpatterns = [
-    # Add notification-related endpoints here if needed
+    path('notifications/', views.NotificationListCreateView.as_view(),
+         name='notification-list'),
+    path('notifications/<uuid:pk>/',
+         views.NotificationDetailView.as_view(), name='notification-detail'),
 ]

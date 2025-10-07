@@ -1,54 +1,115 @@
-// frontend/src/app/page.tsx
-import FeatureCard from "@/components/FeatureCard";
-import Link from "next/link";
+// ============================================
+// FILE 6: frontend/src/app/page.tsx
+// ============================================
+"use client";
 
-export default function Home() {
+import { isAdmin, isAuthenticated } from "@/lib/api";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+
+export default function HomePage() {
+  const [isUserAuthenticated, setIsUserAuthenticated] = useState(false);
+  const [isUserAdmin, setIsUserAdmin] = useState(false);
+
+  useEffect(() => {
+    setIsUserAuthenticated(isAuthenticated());
+    setIsUserAdmin(isAdmin());
+  }, []);
+
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_#f0f9ff,_#e0e7ff,_#f5f3ff)]">
-      <div className="container mx-auto px-4 py-20">
-        <div className="text-center">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      {/* Hero Section */}
+      <div className="container mx-auto px-4 py-16">
+        <div className="text-center max-w-4xl mx-auto">
           <h1 className="text-5xl font-bold text-gray-800 mb-6">
-            Dynamic Form Builder
+            Dynamic Form Builder 
           </h1>
-          <p className="text-xl text-gray-600 mb-12 max-w-2xl mx-auto">
+          <p className="text-xl text-gray-600 mb-8">
             Create customizable onboarding forms for financial services. Support
             KYC, loan applications, investment declarations, and more.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center mb-16">
+          <div className="flex gap-4 justify-center mb-16">
             <Link
-              href="/forms/kyc-form"
-              className="bg-blue-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-blue-700 hover:shadow-lg transition-all duration-300"
+              href="/forms"
+              className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 font-semibold text-lg"
             >
-              Try Demo Form
+              View Available Forms
             </Link>
-            <Link
-              href="/admin"
-              className="border border-gray-300 text-gray-700 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white hover:shadow-md transition-all duration-300"
-            >
-              Admin Dashboard
-            </Link>
+
+            {isUserAdmin && (
+              <Link
+                href="/admin"
+                className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 font-semibold text-lg"
+              >
+                Admin Dashboard
+              </Link>
+            )}
+          </div>
+        </div>
+
+        {/* Features Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          {/* Feature 1 */}
+          <div className="bg-white rounded-xl shadow-sm border p-6 text-center">
+            <div className="text-blue-600 text-4xl mb-4">📋</div>
+            <h3 className="text-xl font-semibold text-gray-800 mb-3">
+              Dynamic Forms
+            </h3>
+            <p className="text-gray-600">
+              Create forms with text, numbers, dates, dropdowns, and file
+              uploads. Fully customizable for any use case.
+            </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            <FeatureCard
-              emoji="📝"
-              color="text-blue-600"
-              title="Dynamic Forms"
-              description="Create forms with text, numbers, dates, dropdowns, and file uploads."
-            />
-            <FeatureCard
-              emoji="⚡"
-              color="text-green-600"
-              title="Async Notifications"
-              description="Get instant admin notifications via Celery when forms are submitted."
-            />
-            <FeatureCard
-              emoji="🔒"
-              color="text-purple-600"
-              title="Admin Dashboard"
-              description="Full control over forms and submissions with secure admin access."
-            />
+          {/* Feature 2 */}
+          <div className="bg-white rounded-xl shadow-sm border p-6 text-center">
+            <div className="text-green-600 text-4xl mb-4">🔔</div>
+            <h3 className="text-xl font-semibold text-gray-800 mb-3">
+              Async Notifications
+            </h3>
+            <p className="text-gray-600">
+              Get instant admin notifications when forms are submitted. Powered
+              by Celery for reliable background processing.
+            </p>
+          </div>
+
+          {/* Feature 3 */}
+          <div className="bg-white rounded-xl shadow-sm border p-6 text-center">
+            <div className="text-purple-600 text-4xl mb-4">⚡</div>
+            <h3 className="text-xl font-semibold text-gray-800 mb-3">
+              Admin Dashboard
+            </h3>
+            <p className="text-gray-600">
+              Full control over forms and submissions with secure admin access.
+              Monitor activity and manage form responses.
+            </p>
+          </div>
+        </div>
+
+        {/* Demo Section */}
+        <div className="max-w-4xl mx-auto mt-16 text-center">
+          <h2 className="text-3xl font-bold text-gray-800 mb-4">
+            Ready to Get Started?
+          </h2>
+          <p className="text-gray-600 mb-8">
+            Browse available forms or create your own with our admin dashboard.
+          </p>
+          <div className="flex gap-4 justify-center">
+            <Link
+              href="/forms"
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-semibold"
+            >
+              Browse Forms
+            </Link>
+            {!isUserAuthenticated && (
+              <Link
+                href="/register"
+                className="border border-blue-600 text-blue-600 px-6 py-3 rounded-lg hover:bg-blue-50 font-semibold"
+              >
+                Create Account
+              </Link>
+            )}
           </div>
         </div>
       </div>

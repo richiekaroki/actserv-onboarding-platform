@@ -2,6 +2,7 @@
 import uuid
 
 from django.db import models
+from django.conf import settings
 
 
 # Models for dynamic forms and submissions
@@ -10,7 +11,7 @@ class Form(models.Model):
     name = models.CharField(max_length=200)
     slug = models.SlugField(max_length=200, unique=True)
     description = models.TextField(blank=True)
-    schema = models.JSONField()  # Django 3.1+ built-in JSONField works with SQLite
+    schema = models.JSONField()
     schema_version = models.IntegerField(default=1)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -30,7 +31,6 @@ class Field(models.Model):
         Form, related_name="fields", on_delete=models.CASCADE)
     key = models.CharField(max_length=150)
     label = models.CharField(max_length=250)
-    # text, number, date, dropdown, checkbox, file
     field_type = models.CharField(max_length=50)
     options = models.JSONField(blank=True, null=True)
     required = models.BooleanField(default=False)
@@ -44,9 +44,8 @@ class Field(models.Model):
     def __str__(self):
         return f"{self.form.name} - {self.label}"
 
-# Model for form submissions
 
-
+# Model for form submissions - UPDATED
 class Submission(models.Model):
     STATUS_CHOICES = [
         ('submitted', 'Submitted'),
@@ -59,6 +58,7 @@ class Submission(models.Model):
     form = models.ForeignKey(
         Form, related_name="submissions", on_delete=models.PROTECT)
     client_identifier = models.CharField(max_length=200, blank=True, null=True)
+    submitted_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
     schema_version = models.IntegerField()
     responses = models.JSONField()
     status = models.CharField(
@@ -71,9 +71,8 @@ class Submission(models.Model):
     class Meta:
         ordering = ['-created_at']
 
+
 # Model for file uploads associated with submissions
-
-
 class FileUpload(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     submission = models.ForeignKey(

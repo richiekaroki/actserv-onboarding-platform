@@ -1,10 +1,11 @@
 # ===== backend/forms/views.py =====
 from notifications.tasks import notify_admin_new_submission
-from rest_framework import viewsets
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework import status, viewsets
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
+from rest_framework.response import Response
 
 from .models import Form, Submission
-from .permissions import IsAdminUserOrReadOnly  # ADD THIS IMPORT
+from .permissions import IsAdminUserOrReadOnly
 from .serializers import FormSerializer, SubmissionSerializer
 
 
@@ -12,10 +13,14 @@ class FormViewSet(viewsets.ModelViewSet):
     queryset = Form.objects.all()
     serializer_class = FormSerializer
     lookup_field = "slug"
-    # REPLACED get_permissions with this
     permission_classes = [IsAdminUserOrReadOnly]
 
-    # REMOVED the get_permissions method - using permission_classes instead
+    def create(self, request, *args, **kwargs):
+        print("=== FORM CREATION REQUEST ===")
+        print("Request data:", request.data)
+        print("User:", request.user)
+        print("=============================")
+        return super().create(request, *args, **kwargs)
 
 
 class SubmissionViewSet(viewsets.ModelViewSet):
@@ -26,13 +31,36 @@ class SubmissionViewSet(viewsets.ModelViewSet):
         """
         Public can submit forms, but only admin users can view/modify submissions
         """
-        if self.action == "create":  # public clients can submit
+        if self.action == "create":
             return [AllowAny()]
-        # admins only for list/retrieve/update/delete
-        # This should probably be [IsAdminUser()] too
-        return [IsAuthenticated()]
+        return [IsAdminUser()]
+
+    def create(self, request, *args, **kwargs):
+        print("=== SUBMISSION CREATE REQUEST ===")
+        print("Request data:", request.data)
+        print("User:", request.user if request.user.is_authenticated else "Anonymous")
+        print("=================================")
+
+        try:
+            response = super().create(request, *args, **kwargs)
+            print("=== SUBMISSION CREATED SUCCESSFULLY ===")
+            return response
+        except Exception as e:
+            print("=== SUBMISSION CREATION FAILED ===")
+            print("Error:", str(e))
+            print("=================================")
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
     def perform_create(self, serializer):
         submission = serializer.save()
+        print(f"=== SUBMISSION SAVED: {submission.id} ===")
+
         # Trigger async notification
-        notify_admin_new_submission.delay(str(submission.id))
+        try:
+            notify_admin_new_submission.delay(str(submission.id))
+            print("=== NOTIFICATION TASK TRIGGERED ===")
+        except Exception as e:
+            print(f"=== NOTIFICATION TASK FAILED: {e} ===")

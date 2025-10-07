@@ -2,7 +2,6 @@
 from rest_framework.permissions import SAFE_METHODS, BasePermission
 
 
-# Custom permission classes for the forms app
 class IsAdminUserOrReadOnly(BasePermission):
     """
     Allow read-only access for all users,
@@ -13,8 +12,6 @@ class IsAdminUserOrReadOnly(BasePermission):
         if request.method in SAFE_METHODS:
             return True
         return request.user and request.user.is_staff
-
-# Custom permission class to allow only admin users full access
 
 
 class IsAdminUserOnly(BasePermission):

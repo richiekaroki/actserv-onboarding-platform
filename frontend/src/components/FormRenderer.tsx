@@ -1,7 +1,7 @@
 // frontend/components/FormRenderer.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { FieldErrors, useForm, UseFormRegister } from "react-hook-form";
 
 interface ConditionalValidation {
@@ -56,7 +56,9 @@ function evaluateConditional(
 ): boolean {
   const { operator, value } = conditional;
   const depVal = parseFloat(dependentValue) || dependentValue;
-  const compareVal = typeof value === "string" ? value : parseFloat(value as string);
+
+  // FIXED: Properly handle number to string conversion
+  const compareVal = typeof value === "string" ? value : String(value);
 
   switch (operator) {
     case "gt":
