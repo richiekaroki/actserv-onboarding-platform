@@ -1,78 +1,93 @@
-# docker-compose.yml (using Alpine versions)
-# version: "3.9"
+# ===== docker-compose.yml (project root) =====
+# Runs the full stack locally:
+#   django   → http://localhost:8000
+#   next     → http://localhost:3000
+#   redis    → localhost:6379 (internal broker)
+#   celery   → background worker
+#
+# Usage:
+#   docker compose up           # start everything
+#   docker compose up django    # backend only
+#   docker compose logs -f celery  # watch task execution
 
 services:
-  # PostgreSQL (optional, enable later)
-  # postgres:
-  #   image: postgres:17-alpine
-  #   container_name: actserv_postgres
-  #   restart: unless-stopped
-  #   environment:
-  #     POSTGRES_USER: actserv_user
-  #     POSTGRES_PASSWORD: actserv_pass
-  #     POSTGRES_DB: actserv_db
-  #   ports:
-  #     - "5432:5432"
-  #   volumes:
-  #     - postgres_data:/var/lib/postgresql/data
 
+  # ── Redis (Celery broker + result backend) ──────────────────────────────
   redis:
     image: redis:7-alpine
-    container_name: actserv_redis
     restart: unless-stopped
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
-  backend:
+  # ── Django API ──────────────────────────────────────────────────────────
+  django:
     build:
       context: ./backend
-      dockerfile: Dockerfile.alpine
-    container_name: actserv_backend
-    command: >
-      sh -c "python manage.py migrate &&
-             python manage.py runserver 0.0.0.0:8000"
-    volumes:
-      - ./backend:/app
-    environment:
-      DEBUG: "1"
-      SECRET_KEY: changeme
-      REDIS_URL: redis://redis:6379/0
-      EMAIL_BACKEND: django.core.mail.backends.console.EmailBackend
-    depends_on:
-      - redis
+      dockerfile: Dockerfile
+    restart: unless-stopped
     ports:
       - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      - DEBUG=True
+      - REDIS_URL=redis://redis:6379/0
+      - ALLOWED_HOSTS=localhost,127.0.0.1,django
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000
+    volumes:
+      # Mount source for live reload in development
+      - ./backend:/app
+      - /app/.venv          # keep the venv from the image, don't overwrite it
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py runserver 0.0.0.0:8000"
 
+  # ── Celery worker ────────────────────────────────────────────────────────
   celery:
     build:
       context: ./backend
-      dockerfile: Dockerfile.alpine
-    container_name: actserv_celery
-    command: celery -A actserv_backend worker -l info
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      - DEBUG=True
+      - REDIS_URL=redis://redis:6379/0
     volumes:
       - ./backend:/app
-    environment:
-      DEBUG: "1"
-      SECRET_KEY: changeme
-      REDIS_URL: redis://redis:6379/0
+      - /app/.venv
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
+      django:
+        condition: service_started
+    command: celery -A actserv_backend worker --loglevel=info --concurrency=2
 
-  frontend:
+  # ── Next.js frontend ─────────────────────────────────────────────────────
+  next:
     build:
       context: ./frontend
-      dockerfile: Dockerfile.alpine
-    container_name: actserv_frontend
-    command: npm run dev
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+      dockerfile: Dockerfile
+    restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
-      NODE_ENV: development
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
     depends_on:
-      - backend
-# Uncomment when Postgres is enabled
-# volumes:
-#   postgres_data:
+      - django
+    # Only built when frontend/Dockerfile exists — comment out until frontend is ready
+    profiles:
+      - fullstack
+
+volumes:
+  # Named volume placeholder — extend here for postgres data if you switch
+  # from SQLite to postgres in docker compose
+  redis_data:

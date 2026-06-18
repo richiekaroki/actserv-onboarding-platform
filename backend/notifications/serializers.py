@@ -5,7 +5,13 @@ from .models import Notification
 
 
 class NotificationSerializer(serializers.ModelSerializer):
-    class Meta:
+    class Meta:  # pyrefly: ignore[bad-override]
         model = Notification
-        fields = '__all__'
-        read_only_fields = ('id', 'created_at')
+        fields = [
+            'id', 'user', 'type', 'title', 'message',
+            'related_submission', 'is_read', 'created_at',
+        ]
+        read_only_fields = (
+            'id', 'user', 'type', 'title', 'message',
+            'related_submission', 'created_at',
+        )

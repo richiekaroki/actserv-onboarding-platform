@@ -1,105 +1,148 @@
+# backend/tests/test_notifications.py
 import uuid
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
+
 from forms.models import Form, Submission
-from notifications.tasks import (format_responses,
-                                 notify_admin_bulk_submissions,
-                                 notify_admin_new_submission)
+from notifications.models import Notification
+from notifications.tasks import (
+    format_responses,
+    notify_admin_bulk_submissions,
+    notify_admin_new_submission,
+)
+from users.models import CustomUser
+
+NOTIFICATIONS_URL = '/api/notifications/'
+
+User = CustomUser
+
+
+class TestFormatResponses:
+    def test_formats_dict_as_indented_lines(self):
+        result = format_responses({'name': 'John', 'age': 30})
+        assert 'name: John' in result
+        assert 'age: 30' in result
+
+    def test_empty_dict_returns_no_responses(self):
+        assert format_responses({}) == 'No responses'
+
+    def test_none_returns_no_responses(self):
+        # format_responses now accepts dict | None — passing None is valid
+        assert format_responses(None) == 'No responses'  # type: ignore[arg-type]
 
 
 @pytest.mark.django_db
-class TestNotificationTasks:
-    """Test the Celery tasks in notifications"""
+class TestNotifyAdminNewSubmission:
 
     @patch('notifications.tasks.send_mail')
-    def test_notify_admin_new_submission_success(self, mock_send_mail):
-        """Test successful email notification"""
-        form = Form.objects.create(name="Test Form", slug="test", schema={})
-        submission = Submission.objects.create(
-            form=form,
-            schema_version=1,
-            responses={"name": "John Doe", "email": "john@example.com"}
-        )
-
-        # Call the task directly
-        result = notify_admin_new_submission(str(submission.id))
-
-        # Verify email was sent
-        mock_send_mail.assert_called_once()
-        call_args = mock_send_mail.call_args
-        assert "New Test Form Submission Received" in call_args[1]['subject']
-        assert "John Doe" in call_args[1]['message']
-        assert result == f"Notification sent successfully for submission {submission.id}"
+    def test_creates_notification_for_each_staff_user(self, mock_mail, admin_user, basic_form):
+        sub = Submission.objects.create(form=basic_form, schema_version=1, responses={'full_name': 'John Doe'})
+        notify_admin_new_submission(str(sub.id))
+        assert Notification.objects.filter(user=admin_user, type='submission', related_submission=sub).exists()
 
     @patch('notifications.tasks.send_mail')
-    def test_notify_admin_new_submission_with_files(self, mock_send_mail):
-        """Test notification with file attachments count"""
-        form = Form.objects.create(name="Test Form", slug="test", schema={})
-        submission = Submission.objects.create(
-            form=form,
-            schema_version=1,
-            responses={"name": "Jane Doe"}
-        )
-
-        # Call the task
-        result = notify_admin_new_submission(str(submission.id))
-
-        # Verify file count is mentioned
-        mock_send_mail.assert_called_once()
-        call_args = mock_send_mail.call_args
-        assert "Files attached: 0" in call_args[1]['message']
-
-    def test_notify_admin_new_submission_not_found(self):
-        """Test handling of non-existent submission"""
-        fake_id = uuid.uuid4()
-        result = notify_admin_new_submission(str(fake_id))
-
-        assert result == f"Submission {fake_id} not found"
+    def test_sends_email_to_admin_list(self, mock_mail, admin_user, basic_form):
+        sub = Submission.objects.create(form=basic_form, schema_version=1, responses={'a': 'b'})
+        notify_admin_new_submission(str(sub.id))
+        mock_mail.assert_called_once()
 
     @patch('notifications.tasks.send_mail')
-    def test_notify_admin_new_submission_retry_on_failure(self, mock_send_mail):
-        """Test retry mechanism when email fails"""
-        mock_send_mail.side_effect = Exception("SMTP error")
-        form = Form.objects.create(name="Test Form", slug="test", schema={})
-        submission = Submission.objects.create(
-            form=form,
-            schema_version=1,
-            responses={}
-        )
+    def test_email_subject_contains_form_name(self, mock_mail, admin_user, basic_form):
+        sub = Submission.objects.create(form=basic_form, schema_version=1, responses={})
+        notify_admin_new_submission(str(sub.id))
+        subject = mock_mail.call_args[1]['subject']
+        assert 'Basic Form' in subject
 
-        # This should raise retry exception
+    @patch('notifications.tasks.send_mail')
+    def test_returns_success_string(self, mock_mail, admin_user, basic_form):
+        sub = Submission.objects.create(form=basic_form, schema_version=1, responses={})
+        result = notify_admin_new_submission(str(sub.id))
+        assert 'Notification sent successfully' in result
+        assert str(sub.id) in result
+
+    def test_nonexistent_submission_returns_not_found(self):
+        result = notify_admin_new_submission(str(uuid.uuid4()))
+        assert 'not found' in result.lower()
+
+    @patch('notifications.tasks.send_mail')
+    def test_failed_email_raises_for_retry(self, mock_mail, admin_user, basic_form):
+        mock_mail.side_effect = Exception('SMTP timeout')
+        sub = Submission.objects.create(form=basic_form, schema_version=1, responses={})
         with pytest.raises(Exception):
-            notify_admin_new_submission(str(submission.id))
-
-    def test_format_responses_function(self):
-        """Test the response formatting helper"""
-        # Test with data
-        responses = {"name": "John", "age": 30, "email": "john@test.com"}
-        formatted = format_responses(responses)
-
-        assert "name: John" in formatted
-        assert "age: 30" in formatted
-        assert "email: john@test.com" in formatted
-
-        # Test empty responses
-        empty_formatted = format_responses({})
-        assert empty_formatted == "No responses"
-
-        # Test None
-        none_formatted = format_responses(None)
-        assert none_formatted == "No responses"
+            notify_admin_new_submission(str(sub.id))
 
     @patch('notifications.tasks.send_mail')
-    def test_notify_admin_bulk_submissions(self, mock_send_mail):
-        """Test bulk submission notification"""
-        form = Form.objects.create(name="Bulk Form", slug="bulk", schema={})
+    def test_bulk_creates_notifications_efficiently(self, mock_mail, db):
+        for i in range(3):
+            User.objects.create_user(
+                username=f'staff{i}@test.com', email=f'staff{i}@test.com',
+                password='pass', is_staff=True,
+            )
+        form = Form.objects.create(name='Bulk Test', slug='bulk-test', schema={})
+        sub = Submission.objects.create(form=form, schema_version=1, responses={})
+        notify_admin_new_submission(str(sub.id))
+        assert Notification.objects.filter(related_submission=sub).count() == 3
 
-        # Call bulk notification
-        result = notify_admin_bulk_submissions(str(form.id), 5)
 
-        # Verify email was sent
-        mock_send_mail.assert_called_once()
-        call_args = mock_send_mail.call_args
-        assert "Bulk Submissions Alert - Bulk Form" in call_args[1]['subject']
-        assert "5 submissions received" in call_args[1]['message']
+@pytest.mark.django_db
+class TestNotifyAdminBulkSubmissions:
+
+    @patch('notifications.tasks.send_mail')
+    def test_sends_bulk_alert_email(self, mock_mail, basic_form):
+        notify_admin_bulk_submissions(str(basic_form.id), 10)
+        mock_mail.assert_called_once()
+        subject = mock_mail.call_args[1]['subject']
+        assert 'Basic Form' in subject
+        assert 'Bulk' in subject
+
+    @patch('notifications.tasks.send_mail')
+    def test_email_body_mentions_count(self, mock_mail, basic_form):
+        notify_admin_bulk_submissions(str(basic_form.id), 10)
+        assert '10' in mock_mail.call_args[1]['message']
+
+    def test_nonexistent_form_returns_not_found(self):
+        result = notify_admin_bulk_submissions(str(uuid.uuid4()), 5)
+        assert 'not found' in result.lower()
+
+
+@pytest.mark.django_db
+class TestNotificationsApi:
+
+    def _create_notification(self, user, basic_form):
+        sub = Submission.objects.create(form=basic_form, schema_version=1, responses={})
+        return Notification.objects.create(
+            user=user, type='submission', title='New Submission',
+            message='A form was submitted.', related_submission=sub,
+        )
+
+    def test_unauthenticated_cannot_list_notifications(self, api_client):
+        assert api_client.get(NOTIFICATIONS_URL).status_code == 401
+
+    def test_user_sees_only_own_notifications(self, auth_client, client_user, admin_user, basic_form):
+        self._create_notification(client_user, basic_form)
+        self._create_notification(admin_user, basic_form)
+        response = auth_client.get(NOTIFICATIONS_URL)
+        assert response.status_code == 200
+        assert len(response.json()) == 1
+
+    def test_mark_notification_as_read(self, auth_client, client_user, basic_form):
+        notif = self._create_notification(client_user, basic_form)
+        assert notif.is_read is False  # explicit False check, not identity
+
+        response = auth_client.patch(f'{NOTIFICATIONS_URL}{notif.id}/', {'is_read': True}, format='json')
+        assert response.status_code == 200
+        notif.refresh_from_db()
+        assert notif.is_read is True
+
+    def test_mark_all_read(self, auth_client, client_user, basic_form):
+        for _ in range(3):
+            self._create_notification(client_user, basic_form)
+        response = auth_client.post('/api/notifications/mark-all-read/')
+        assert response.status_code == 200
+        assert response.json()['marked_read'] == 3
+        assert Notification.objects.filter(user=client_user, is_read=False).count() == 0
+
+    def test_user_cannot_access_another_users_notification(self, auth_client, admin_user, basic_form):
+        notif = self._create_notification(admin_user, basic_form)
+        assert auth_client.get(f'{NOTIFICATIONS_URL}{notif.id}/').status_code == 404

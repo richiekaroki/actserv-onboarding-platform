@@ -1,35 +1,78 @@
 // frontend/__tests__/FieldTypes.test.tsx
-import { render, screen } from '@testing-library/react';
-import '@testing-library/jest-dom';
+import React from "react";
+import { render, screen } from "@testing-library/react";
+import FormRenderer, { type FormFieldDef } from "@/components/FormRenderer";
 
-describe('Field Types - Basic', () => {
-  test('renders basic form elements', () => {
-    render(
-      <form>
-        <label htmlFor="name">Name</label>
-        <input type="text" id="name" />
-        <label htmlFor="age">Age</label>
-        <input type="number" id="age" />
-        <button type="submit">Submit</button>
-      </form>
-    );
+const mockSubmit = jest.fn();
 
-    expect(screen.getByLabelText(/Name/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Age/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Submit/i })).toBeInTheDocument();
+function field(overrides: Partial<FormFieldDef>): FormFieldDef {
+  return {
+    id: "f1", key: "test_field", label: "Test Field",
+    field_type: "text", required: false, options: null,
+    order: 0, help_text: "", placeholder: "",
+    ...overrides,
+  };
+}
+
+describe("All field types render correctly", () => {
+  it("text field", () => {
+    render(<FormRenderer fields={[field({ field_type: "text" })]} formId="f" onSubmit={mockSubmit} />);
+    expect(screen.getByRole("textbox")).toHaveAttribute("type", "text");
   });
 
-  test('input fields have correct types', () => {
-    render(
-      <div>
-        <input type="text" data-testid="text-input" />
-        <input type="number" data-testid="number-input" />
-        <input type="date" data-testid="date-input" />
-      </div>
-    );
+  it("email field", () => {
+    render(<FormRenderer fields={[field({ field_type: "email", key: "email", label: "Email" })]} formId="f" onSubmit={mockSubmit} />);
+    expect(screen.getByRole("textbox")).toHaveAttribute("type", "email");
+  });
 
-    expect(screen.getByTestId('text-input')).toHaveAttribute('type', 'text');
-    expect(screen.getByTestId('number-input')).toHaveAttribute('type', 'number');
-    expect(screen.getByTestId('date-input')).toHaveAttribute('type', 'date');
+  it("number field", () => {
+    render(<FormRenderer fields={[field({ field_type: "number" })]} formId="f" onSubmit={mockSubmit} />);
+    expect(screen.getByRole("spinbutton")).toBeInTheDocument();
+  });
+
+  it("date field", () => {
+    const { container } = render(<FormRenderer fields={[field({ field_type: "date" })]} formId="f" onSubmit={mockSubmit} />);
+    expect(container.querySelector('input[type="date"]')).toBeInTheDocument();
+  });
+
+  it("dropdown field renders options", () => {
+    render(
+      <FormRenderer
+        fields={[field({
+          field_type: "dropdown",
+          options: [{ value: "a", label: "Option A" }, { value: "b", label: "Option B" }],
+        })]}
+        formId="f"
+        onSubmit={mockSubmit}
+      />
+    );
+    expect(screen.getByText("Option A")).toBeInTheDocument();
+    expect(screen.getByText("Option B")).toBeInTheDocument();
+  });
+
+  it("dropdown accepts string options (legacy format)", () => {
+    render(
+      <FormRenderer
+        fields={[field({ field_type: "dropdown", options: ["Alpha", "Beta"] as unknown as FormFieldDef["options"] })]}
+        formId="f"
+        onSubmit={mockSubmit}
+      />
+    );
+    expect(screen.getByText("Alpha")).toBeInTheDocument();
+  });
+
+  it("checkbox field renders a checkbox input", () => {
+    render(<FormRenderer fields={[field({ field_type: "checkbox" })]} formId="f" onSubmit={mockSubmit} />);
+    expect(screen.getByRole("checkbox")).toBeInTheDocument();
+  });
+
+  it("file field renders a file input", () => {
+    const { container } = render(<FormRenderer fields={[field({ field_type: "file" })]} formId="f" onSubmit={mockSubmit} />);
+    expect(container.querySelector('input[type="file"]')).toBeInTheDocument();
+  });
+
+  it("textarea field renders a textarea element", () => {
+    render(<FormRenderer fields={[field({ field_type: "textarea" })]} formId="f" onSubmit={mockSubmit} />);
+    expect(screen.getByRole("textbox")).toBeInTheDocument(); // textarea has implicit textbox role
   });
 });

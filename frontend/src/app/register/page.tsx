@@ -1,191 +1,172 @@
-// ============================================
-// FILE 3: frontend/src/app/register/page.tsx
-// ============================================
+// frontend/src/app/register/page.tsx
 "use client";
 
-import { loginUser, registerClient } from "@/lib/api";
+import { registerClient, loginUser } from "@/lib/api";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export default function RegisterPage() {
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-    first_name: "",
-    last_name: "",
-  });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [formData, setFormData] = useState({ email:"", password:"", first_name:"", last_name:"" });
+  const [loading, setLoading]   = useState(false);
+  const [error,   setError]     = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [passError,  setPassError]  = useState("");
   const router = useRouter();
 
+  const validateEmail = (v: string) => {
+    if (!v) { setEmailError(""); return true; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
+      setEmailError("Please enter a valid email address");
+      return false;
+    }
+    setEmailError(""); return true;
+  };
+
+  const validatePassword = (v: string) => {
+    if (!v) { setPassError(""); return true; }
+    if (v.length < 8)           { setPassError("Minimum 8 characters");                             return false; }
+    if (!/[A-Z]/.test(v) || !/[a-z]/.test(v) || !/\d/.test(v)) {
+      setPassError("Must include uppercase, lowercase, and a number"); return false;
+    }
+    setPassError(""); return true;
+  };
+
+  const getStrength = (p: string) => {
+    if (!p) return { pct: 0, label: "", color: "" };
+    let s = 0;
+    if (p.length >= 8)  s++;
+    if (p.length >= 12) s++;
+    if (/[a-z]/.test(p)) s++;
+    if (/[A-Z]/.test(p)) s++;
+    if (/\d/.test(p))    s++;
+    if (/[^a-zA-Z0-9]/.test(p)) s++;
+    if (s <= 2) return { pct: (s/6)*100, label:"Weak",   color:"#ef4444" };
+    if (s <= 4) return { pct: (s/6)*100, label:"Medium", color:"#f59e0b" };
+    return              { pct: (s/6)*100, label:"Strong", color:"#22c55e" };
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value } = e.target;
+    setFormData(f => ({ ...f, [name]: value }));
+    if (name === "email"    && value) validateEmail(value);
+    if (name === "password" && value) validatePassword(value);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError("");
-
+    if (!validateEmail(formData.email) || !validatePassword(formData.password)) return;
+    setLoading(true); setError("");
     try {
-      // Register the user
       await registerClient(formData);
-
-      // Auto-login after successful registration
-      await loginUser({
-        email: formData.email,
-        password: formData.password,
-      });
-
-      // Redirect to forms page
+      await loginUser({ email: formData.email, password: formData.password });
       router.push("/forms");
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { email?: string[]; password?: string[]; detail?: string } }; message?: string };
       setError(
-        err.response?.data?.detail ||
-          err.response?.data?.error ||
-          err.message ||
-          "Registration failed. Please try again."
+        e.response?.data?.email?.[0] ??
+        e.response?.data?.password?.[0] ??
+        e.response?.data?.detail ??
+        e.message ??
+        "Registration failed. Please try again."
       );
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900">FormBuilder</h1>
-          <h2 className="mt-6 text-2xl font-bold text-gray-900">
-            Create your account
-          </h2>
-        </div>
-      </div>
+  const strength = getStrength(formData.password);
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
-                {error}
+  return (
+    <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center",
+      background:"var(--color-surface)", padding:"2rem" }}>
+      <div style={{ width:"100%", maxWidth:"420px" }}>
+        <Link href="/" style={{ fontSize:"0.7rem", color:"var(--color-ink-400)", fontFamily:"var(--font-mono)",
+          letterSpacing:"0.1em", textTransform:"uppercase", textDecoration:"none", display:"block", marginBottom:"2rem" }}>
+          ← Back
+        </Link>
+
+        <h2 style={{ fontFamily:"var(--font-display)", fontSize:"2.25rem", color:"var(--color-ink-900)",
+          marginBottom:"0.5rem" }}>
+          Create account
+        </h2>
+        <p style={{ fontSize:"0.875rem", color:"var(--color-ink-400)", marginBottom:"2rem" }}>
+          Register to access onboarding forms
+        </p>
+
+        <form onSubmit={handleSubmit} style={{ display:"flex", flexDirection:"column", gap:"1.25rem" }}>
+          {error && (
+            <p style={{ fontSize:"0.875rem", padding:"0.75rem 1rem",
+              background:"#fef2f2", border:"1px solid #fecaca", color:"#b91c1c" }}>
+              {error}
+            </p>
+          )}
+
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"1rem" }}>
+            <div>
+              <label className="label">First name</label>
+              <input name="first_name" value={formData.first_name} onChange={handleChange}
+                placeholder="Jane" className="input" />
+            </div>
+            <div>
+              <label className="label">Last name</label>
+              <input name="last_name" value={formData.last_name} onChange={handleChange}
+                placeholder="Doe" className="input" />
+            </div>
+          </div>
+
+          <div>
+            <label className="label">Email address *</label>
+            <input name="email" type="email" value={formData.email} onChange={handleChange}
+              onBlur={() => validateEmail(formData.email)}
+              placeholder="jane@example.com" required
+              className={`input ${emailError ? "input-error" : ""}`} />
+            {emailError && <p style={{ fontSize:"0.75rem", color:"#dc2626", marginTop:"0.375rem" }}>{emailError}</p>}
+          </div>
+
+          <div>
+            <label className="label">Password *</label>
+            <input name="password" type="password" value={formData.password} onChange={handleChange}
+              onBlur={() => validatePassword(formData.password)}
+              placeholder="Minimum 8 characters" required minLength={8}
+              className={`input ${passError ? "input-error" : ""}`} />
+
+            {formData.password && (
+              <div style={{ marginTop:"0.5rem", display:"flex", alignItems:"center", gap:"0.75rem" }}>
+                <div style={{ flex:1, height:"3px", background:"var(--color-ink-100)", borderRadius:"2px" }}>
+                  <div style={{ height:"100%", borderRadius:"2px", background:strength.color,
+                    width:`${strength.pct}%`, transition:"width 0.3s, background 0.3s" }} />
+                </div>
+                <span style={{ fontSize:"0.7rem", color:strength.color, fontFamily:"var(--font-mono)",
+                  minWidth:"3.5rem", textAlign:"right" }}>
+                  {strength.label}
+                </span>
               </div>
             )}
+            {passError && <p style={{ fontSize:"0.75rem", color:"#dc2626", marginTop:"0.375rem" }}>{passError}</p>}
+            <p style={{ fontSize:"0.7rem", color:"var(--color-ink-300)", marginTop:"0.375rem" }}>
+              At least 8 characters with uppercase, lowercase, and numbers
+            </p>
+          </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label
-                  htmlFor="first_name"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  First Name
-                </label>
-                <div className="mt-1">
-                  <input
-                    id="first_name"
-                    name="first_name"
-                    type="text"
-                    autoComplete="given-name"
-                    value={formData.first_name}
-                    onChange={handleChange}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="First name"
-                  />
-                </div>
-              </div>
+          <button type="submit" disabled={loading || !!emailError || !!passError}
+            className="btn-primary" style={{ justifyContent:"center", marginTop:"0.5rem" }}>
+            {loading ? (
+              <span style={{ display:"flex", alignItems:"center", gap:"0.5rem" }}>
+                <span className="animate-spin" style={{ width:"1rem", height:"1rem",
+                  border:"2px solid rgba(255,255,255,0.3)", borderTopColor:"white",
+                  borderRadius:"50%", display:"inline-block" }} />
+                Creating account…
+              </span>
+            ) : "Create account"}
+          </button>
 
-              <div>
-                <label
-                  htmlFor="last_name"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Last Name
-                </label>
-                <div className="mt-1">
-                  <input
-                    id="last_name"
-                    name="last_name"
-                    type="text"
-                    autoComplete="family-name"
-                    value={formData.last_name}
-                    onChange={handleChange}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Last name"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Email
-              </label>
-              <div className="mt-1">
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter your email"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Password
-              </label>
-              <div className="mt-1">
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Create a password"
-                />
-              </div>
-            </div>
-
-            <div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-              >
-                {loading ? "Creating account..." : "Create account"}
-              </button>
-            </div>
-
-            <div className="text-center">
-              <p className="text-sm text-gray-600">
-                Already have an account?{" "}
-                <Link
-                  href="/login"
-                  className="font-medium text-blue-600 hover:text-blue-500"
-                >
-                  Sign in
-                </Link>
-              </p>
-            </div>
-          </form>
-        </div>
+          <p style={{ textAlign:"center", fontSize:"0.875rem", color:"var(--color-ink-400)" }}>
+            Already have an account?{" "}
+            <Link href="/login" style={{ color:"var(--color-ink-900)",
+              textDecoration:"underline", textUnderlineOffset:"3px" }}>
+              Sign in
+            </Link>
+          </p>
+        </form>
       </div>
     </div>
   );

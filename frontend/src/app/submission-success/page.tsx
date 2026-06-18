@@ -1,6 +1,4 @@
-// ============================================
-// FILE 1: frontend/src/app/submission-success/page.tsx (NEW)
-// ============================================
+//frontend/src/app/submission-success/page.tsx
 "use client";
 
 import Link from "next/link";

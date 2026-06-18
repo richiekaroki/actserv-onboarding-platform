@@ -1,28 +1,42 @@
-FROM python:3.13-alpine
+# ===== backend/Dockerfile.alpine =====
+# Lighter Alpine-based image. Use when image size matters most.
+# Note: psycopg2-binary ships its own libpq so no extra libs needed.
+
+FROM python:3.13-alpine AS builder
 
 WORKDIR /app
 
-# Install system dependencies for Python packages (psycopg2, Pillow, etc.)
 RUN apk add --no-cache \
     build-base \
     postgresql-dev \
-    gcc \
-    python3-dev \
-    libffi-dev \
     jpeg-dev \
     zlib-dev \
     musl-dev
 
-# Environment settings
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    VIRTUAL_ENV=/app/.venv \
+    PATH="/app/.venv/bin:$PATH"
 
-# Copy Django project
+COPY pyproject.toml .
+RUN uv venv /app/.venv \
+    && uv pip install --no-dev -e .
+
+# ── Runtime ───────────────────────────────────────────────────────────────────
+FROM python:3.13-alpine
+
+WORKDIR /app
+
+RUN apk add --no-cache libpq jpeg zlib
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    VIRTUAL_ENV=/app/.venv \
+    PATH="/app/.venv/bin:$PATH"
+
+COPY --from=builder /app/.venv /app/.venv
 COPY . .
 
 EXPOSE 8000

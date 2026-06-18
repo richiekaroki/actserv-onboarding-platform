@@ -1,0 +1,156 @@
+[project]
+name = "actserv-backend"
+version = "0.1.0"
+description = "ActServ Dynamic Onboarding Platform – Django backend"
+requires-python = ">=3.13"
+
+dependencies = [
+    # Django core
+    "django==5.2.6",
+    "asgiref==3.9.2",
+
+    # REST framework
+    "djangorestframework==3.16.1",
+    "djangorestframework-simplejwt==5.5.1",
+    "drf-spectacular==0.28.0",
+
+    # Auth / security
+    "PyJWT==2.10.1",
+
+    # Database
+    "psycopg2-binary==2.9.10",
+    "dj-database-url==2.3.0",
+
+    # Async / task queue
+    "celery==5.5.3",
+    "redis==6.4.0",
+    "kombu==5.5.4",
+    "amqp==5.3.1",
+    "billiard==4.2.2",
+    "vine==5.1.0",
+
+    # HTTP / middleware
+    "django-cors-headers==4.9.0",
+    "whitenoise==6.11.0",
+
+    # Config
+    "python-dotenv==1.1.1",
+
+    # Utilities
+    "python-dateutil==2.9.0.post0",
+    "tzdata==2025.2",
+    "sqlparse==0.5.3",
+    "packaging==25.0",
+
+    # CLI helpers (used by Celery CLI)
+    "click==8.3.0",
+    "click-didyoumean==0.3.1",
+    "click-plugins==1.1.1.2",
+    "click-repl==0.3.0",
+    "prompt-toolkit==3.0.52",
+    "wcwidth==0.2.14",
+    "colorama==0.4.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    # Testing
+    "pytest",
+    "pytest-django",
+    "pytest-cov",
+    "model-bakery",
+
+    # Linting
+    "pylint==3.3.8",
+    "pylint-django==2.6.1",
+    "pylint-plugin-utils==0.9.0",
+    "isort==6.0.1",
+    "astroid==3.3.11",
+    "dill==0.4.0",
+    "mccabe==0.7.0",
+    "tomlkit==0.13.3",
+    "platformdirs==4.4.0",
+
+    # Type stubs — needed for Pyrefly to resolve Django/DRF/Celery types
+    "django-stubs[compatible-mypy]",
+    "djangorestframework-stubs[compatible-mypy]",
+    "celery-types",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# ---------------------------------------------------------------------------
+# pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "actserv_backend.settings"
+python_files = ["tests.py", "test_*.py", "*_tests.py"]
+addopts = [
+    "--cov=.",
+    "--cov-report=html",
+    "--cov-omit=*/migrations/*,*/venv/*,*/.venv/*,manage.py,*/settings*",
+    "-m", "not integration",
+]
+markers = [
+    "integration: requires live Redis + Celery worker (deselected by default)",
+]
+
+# ---------------------------------------------------------------------------
+# isort
+# ---------------------------------------------------------------------------
+[tool.isort]
+profile = "django"
+known_django = ["django"]
+known_third_party = ["rest_framework", "celery", "drf_spectacular"]
+known_first_party = ["users", "forms", "notifications", "actserv_backend"]
+
+# ---------------------------------------------------------------------------
+# pylint
+# ---------------------------------------------------------------------------
+[tool.pylint.master]
+load-plugins = ["pylint_django"]
+django-settings-module = "actserv_backend.settings"
+
+[tool.pylint.messages_control]
+disable = ["C0114", "C0115", "C0116", "R0903"]
+
+# ---------------------------------------------------------------------------
+# django-stubs
+# ---------------------------------------------------------------------------
+[tool.django-stubs]
+django_settings_module = "actserv_backend.settings"
+
+# ---------------------------------------------------------------------------
+# Pyrefly
+#
+# Why errors_to_ignore?
+#
+# bad-override:      DRF's inner Meta class pattern, ModelAdmin list_display
+#                    tuples, SerializerMethodField named 'fields', and
+#                    inlines/actions lists are all valid Django/DRF design —
+#                    not override bugs. djangorestframework-stubs does not
+#                    model these correctly.
+#
+# missing-attribute: django-stubs types request.user as AbstractBaseUser
+#                    (the base class) rather than your CustomUser, so
+#                    .email / .role / .is_staff / .first_name appear "missing".
+#                    Reverse FK accessors like submission.files (a
+#                    RelatedManager created by ForeignKey) are also invisible
+#                    to Pyrefly without full ORM stub support.
+#
+# untyped-import:    Fired for packages with no stubs at all. Informational
+#                    only — does not mean the import is broken.
+#
+# None of these are real bugs. Tests pass and the server runs correctly.
+# ---------------------------------------------------------------------------
+[tool.pyrefly]
+python_interpreter = ".venv/Scripts/python.exe"   # Windows (Git Bash / Windsurf)
+# python_interpreter = ".venv/bin/python"         # Linux / macOS
+
+errors_to_ignore = [
+    "bad-override",
+    "missing-attribute",
+    "untyped-import",
+]

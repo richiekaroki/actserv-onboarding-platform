@@ -1,47 +1,43 @@
-// frontend/components/FormRenderer.tsx
+// frontend/src/components/FormRenderer.tsx
 "use client";
 
 import { useState } from "react";
-import { FieldErrors, useForm, UseFormRegister } from "react-hook-form";
+import { useForm, UseFormRegister, FieldErrors } from "react-hook-form";
 
-interface ConditionalValidation {
-  depends_on: string;
-  operator: "gt" | "lt" | "eq" | "gte" | "lte" | "ne";
-  value: number | string;
-  message?: string;
-}
-
-interface FormField {
+// The backend stores fields as Field model rows returned in the `fields`
+// array of the Form response — not inside schema.fields.
+// This component accepts that array directly.
+export interface FormFieldDef {
+  id: string;
   key: string;
   label: string;
-  field_type: "text" | "number" | "date" | "dropdown" | "checkbox" | "file";
+  field_type: "text" | "number" | "date" | "dropdown" | "checkbox" | "file" | "email" | "textarea";
   required?: boolean;
-  options?: string[];
-  conditional_required?: ConditionalValidation;
+  options?: { value: string; label: string }[] | string[] | null;
+  // Conditional validation rule from the field's validation JSON
+  conditional_required?: {
+    depends_on: string;
+    operator: "gt" | "lt" | "eq" | "gte" | "lte" | "ne";
+    value: number | string;
+    message?: string;
+  };
   help_text?: string;
+  placeholder?: string;
+  order: number;
 }
 
 interface Props {
-  schema: {
-    fields: FormField[];
-  };
-  formSlug: string;
+  fields: FormFieldDef[];
+  formId: string;
   onSubmit: (
-    formSlug: string,
-    textValues: Record<string, any>,
+    formId: string,
+    textValues: Record<string, unknown>,
     files: Record<string, File | File[]>
   ) => Promise<void>;
 }
 
-interface FieldInputProps {
-  field: FormField;
-  register: UseFormRegister<any>;
-  errors: FieldErrors;
-  watchValues: Record<string, any>;
-}
-
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ALLOWED_FILE_TYPES = [
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const ALLOWED_MIME_TYPES = [
   "application/pdf",
   "image/jpeg",
   "image/png",
@@ -51,219 +47,193 @@ const ALLOWED_FILE_TYPES = [
 ];
 
 function evaluateConditional(
-  conditional: ConditionalValidation,
-  dependentValue: any
+  conditional: NonNullable<FormFieldDef["conditional_required"]>,
+  dependentValue: unknown
 ): boolean {
   const { operator, value } = conditional;
-  const depVal = parseFloat(dependentValue) || dependentValue;
+  const depNum = parseFloat(String(dependentValue));
+  const refNum = typeof value === "number" ? value : parseFloat(String(value));
 
-  // FIXED: Properly handle number to string conversion
-  const compareVal = typeof value === "string" ? value : String(value);
+  // Use numeric comparison when both sides are valid numbers
+  const numericOps = ["gt", "gte", "lt", "lte"];
+  if (numericOps.includes(operator) && !isNaN(depNum) && !isNaN(refNum)) {
+    switch (operator) {
+      case "gt":  return depNum >  refNum;
+      case "gte": return depNum >= refNum;
+      case "lt":  return depNum <  refNum;
+      case "lte": return depNum <= refNum;
+    }
+  }
 
+  // String/equality comparison
+  const depStr = String(dependentValue ?? "");
+  const refStr = String(value);
   switch (operator) {
-    case "gt":
-      return depVal > compareVal;
-    case "gte":
-      return depVal >= compareVal;
-    case "lt":
-      return depVal < compareVal;
-    case "lte":
-      return depVal <= compareVal;
-    case "eq":
-      return depVal == compareVal;
-    case "ne":
-      return depVal != compareVal;
-    default:
-      return false;
+    case "eq": return depStr === refStr;
+    case "ne": return depStr !== refStr;
+    default:   return false;
   }
 }
 
-function FieldInput({ field, register, errors, watchValues }: FieldInputProps) {
+// ── Single field renderer ────────────────────────────────────────────────────
+interface FieldInputProps {
+  field: FormFieldDef;
+  register: UseFormRegister<Record<string, unknown>>;
+  errors: FieldErrors<Record<string, unknown>>;
+  watchedValues: Record<string, unknown>;
+}
+
+function FieldInput({ field, register, errors, watchedValues }: FieldInputProps) {
   const error = errors[field.key];
-  const inputBaseClass =
-    "w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors";
-  const errorClass = "border-red-500 bg-red-50";
-  const labelClass = "block text-sm font-medium text-gray-700 mb-2";
 
   const isConditionallyRequired = field.conditional_required
     ? evaluateConditional(
         field.conditional_required,
-        watchValues[field.conditional_required.depends_on]
+        watchedValues[field.conditional_required.depends_on]
       )
     : false;
 
   const isRequired = field.required || isConditionallyRequired;
-  const requiredMessage = isConditionallyRequired
-    ? field.conditional_required?.message || `${field.label} is required`
-    : field.required
-    ? `${field.label} is required`
-    : false;
+  const requiredMsg = isConditionallyRequired
+    ? (field.conditional_required?.message ?? `${field.label} is required`)
+    : `${field.label} is required`;
 
-  switch (field.field_type) {
-    case "text":
-    case "number":
-    case "date":
-      return (
-        <div className="mb-6">
-          <label className={labelClass}>
-            {field.label}
-            {isRequired && <span className="text-red-500 ml-1">*</span>}
-            {isConditionallyRequired && (
-              <span className="text-xs text-orange-600 ml-2">
-                (conditionally required)
-              </span>
-            )}
-          </label>
+  const baseClass =
+    "w-full border px-4 py-3 text-sm outline-none transition-colors " +
+    "focus:border-[var(--color-ink-900)] focus:shadow-[0_0_0_1px_var(--color-ink-900)] " +
+    (error
+      ? "border-red-400 bg-red-50"
+      : "border-[var(--color-ink-200)] bg-white");
+
+  // Normalise options to { value, label } shape regardless of source format
+  const normaliseOptions = (
+    raw: FormFieldDef["options"]
+  ): { value: string; label: string }[] => {
+    if (!raw) return [];
+    return raw.map((o) =>
+      typeof o === "string" ? { value: o, label: o } : o
+    );
+  };
+
+  return (
+    <div className="mb-6">
+      {field.field_type !== "checkbox" && (
+        <label className="label">
+          {field.label}
+          {isRequired && (
+            <span style={{ color: "var(--color-gold)", marginLeft: "0.25rem" }}>*</span>
+          )}
+          {isConditionallyRequired && (
+            <span className="ml-2 text-[11px] normal-case tracking-normal text-orange-500">
+              (conditionally required)
+            </span>
+          )}
+        </label>
+      )}
+
+      {field.help_text && (
+        <p className="text-xs mb-2" style={{ color: "var(--color-ink-400)" }}>
+          {field.help_text}
+        </p>
+      )}
+
+      {/* ── text / email / number / date ── */}
+      {(["text", "email", "number", "date"] as const).includes(
+        field.field_type as "text" | "email" | "number" | "date"
+      ) && (
+        <input
+          type={field.field_type}
+          placeholder={field.placeholder ?? `Enter ${field.label.toLowerCase()}`}
+          {...register(field.key, { required: isRequired ? requiredMsg : false })}
+          className={baseClass}
+        />
+      )}
+
+      {/* ── textarea ── */}
+      {field.field_type === "textarea" && (
+        <textarea
+          rows={4}
+          placeholder={field.placeholder ?? `Enter ${field.label.toLowerCase()}`}
+          {...register(field.key, { required: isRequired ? requiredMsg : false })}
+          className={baseClass + " resize-none"}
+        />
+      )}
+
+      {/* ── dropdown ── */}
+      {field.field_type === "dropdown" && (
+        <select
+          {...register(field.key, { required: isRequired ? requiredMsg : false })}
+          className={baseClass}
+        >
+          <option value="">Select an option…</option>
+          {normaliseOptions(field.options).map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      )}
+
+      {/* ── checkbox ── */}
+      {field.field_type === "checkbox" && (
+        <label className="flex items-start gap-3 cursor-pointer">
           <input
-            type={field.field_type}
-            {...register(field.key, {
-              required: requiredMessage,
-            })}
-            className={`${inputBaseClass} ${error ? errorClass : ""}`}
-            placeholder={`Enter ${field.label.toLowerCase()}`}
+            type="checkbox"
+            {...register(field.key, { required: isRequired ? requiredMsg : false })}
+            className="mt-0.5 h-4 w-4 accent-[var(--color-ink-900)]"
           />
-          {field.help_text && (
-            <p className="text-xs text-gray-500 mt-1">{field.help_text}</p>
-          )}
-          {error && (
-            <p className="text-red-500 text-sm mt-1">
-              {error.message as string}
-            </p>
-          )}
-        </div>
-      );
-
-    case "dropdown":
-      return (
-        <div className="mb-6">
-          <label className={labelClass}>
+          <span className="text-sm" style={{ color: "var(--color-ink-700)" }}>
             {field.label}
-            {isRequired && <span className="text-red-500 ml-1">*</span>}
-            {isConditionallyRequired && (
-              <span className="text-xs text-orange-600 ml-2">
-                (conditionally required)
-              </span>
+            {isRequired && (
+              <span style={{ color: "var(--color-gold)", marginLeft: "0.25rem" }}>*</span>
             )}
-          </label>
-          <select
-            {...register(field.key, {
-              required: requiredMessage,
-            })}
-            className={`${inputBaseClass} ${error ? errorClass : ""}`}
-          >
-            <option value="">Select an option...</option>
-            {field.options?.map((opt, i) => (
-              <option key={i} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
-          {field.help_text && (
-            <p className="text-xs text-gray-500 mt-1">{field.help_text}</p>
-          )}
-          {error && (
-            <p className="text-red-500 text-sm mt-1">
-              {error.message as string}
-            </p>
-          )}
-        </div>
-      );
+          </span>
+        </label>
+      )}
 
-    case "checkbox":
-      return (
-        <div className="mb-6">
-          <div className="flex items-start space-x-3">
-            <input
-              type="checkbox"
-              {...register(field.key, {
-                required: requiredMessage,
-              })}
-              className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <div className="flex-1">
-              <label className="text-sm text-gray-700">
-                {field.label}
-                {isRequired && <span className="text-red-500 ml-1">*</span>}
-                {isConditionallyRequired && (
-                  <span className="text-xs text-orange-600 ml-2">
-                    (conditionally required)
-                  </span>
-                )}
-              </label>
-              {field.help_text && (
-                <p className="text-xs text-gray-500 mt-1">{field.help_text}</p>
-              )}
-            </div>
-          </div>
-          {error && (
-            <p className="text-red-500 text-sm mt-1">
-              {error.message as string}
-            </p>
-          )}
-        </div>
-      );
-
-    case "file":
-      return (
-        <div className="mb-6">
-          <label className={labelClass}>
-            {field.label}
-            {isRequired && <span className="text-red-500 ml-1">*</span>}
-            {isConditionallyRequired && (
-              <span className="text-xs text-orange-600 ml-2">
-                (conditionally required)
-              </span>
-            )}
-          </label>
+      {/* ── file ── */}
+      {field.field_type === "file" && (
+        <>
           <input
             type="file"
             multiple
             accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
             {...register(field.key, {
-              required: requiredMessage,
-              validate: (files: FileList) => {
-                if (!files || files.length === 0) {
-                  return isRequired ? requiredMessage : true;
+              required: isRequired ? requiredMsg : false,
+              validate: (files: unknown) => {
+                const fl = files as FileList;
+                if (!fl || fl.length === 0) return isRequired ? requiredMsg : true;
+                for (let i = 0; i < fl.length; i++) {
+                  if (fl[i].size > MAX_FILE_SIZE)
+                    return `"${fl[i].name}" exceeds the 5 MB limit`;
+                  if (!ALLOWED_MIME_TYPES.includes(fl[i].type))
+                    return `"${fl[i].name}" is not an allowed file type (PDF, JPG, PNG, DOC, DOCX)`;
                 }
-
-                for (let i = 0; i < files.length; i++) {
-                  const file = files[i];
-
-                  if (file.size > MAX_FILE_SIZE) {
-                    return `File "${file.name}" exceeds 5MB limit`;
-                  }
-
-                  if (!ALLOWED_FILE_TYPES.includes(file.type)) {
-                    return `File "${file.name}" has invalid type. Only PDF, JPG, PNG, DOC, DOCX allowed`;
-                  }
-                }
-
                 return true;
               },
             })}
-            className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+            className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4
+                       file:border-0 file:text-sm file:font-medium
+                       file:bg-[var(--color-ink-50)] file:text-[var(--color-ink-700)]
+                       hover:file:bg-[var(--color-ink-100)] cursor-pointer"
           />
-          <p className="text-xs text-gray-500 mt-1">
-            Max 5MB per file. Multiple files allowed. Formats: PDF, JPG, PNG,
-            DOC, DOCX
+          <p className="text-xs mt-1" style={{ color: "var(--color-ink-400)" }}>
+            Max 5 MB per file · PDF, JPG, PNG, DOC, DOCX · Multiple files allowed
           </p>
-          {field.help_text && (
-            <p className="text-xs text-blue-600 mt-1">{field.help_text}</p>
-          )}
-          {error && (
-            <p className="text-red-500 text-sm mt-1">
-              {error.message as string}
-            </p>
-          )}
-        </div>
-      );
+        </>
+      )}
 
-    default:
-      return null;
-  }
+      {error && (
+        <p className="mt-1.5 text-xs text-red-600">
+          {error.message as string}
+        </p>
+      )}
+    </div>
+  );
 }
 
-export default function FormRenderer({ schema, formSlug, onSubmit }: Props) {
+// ── Main renderer ────────────────────────────────────────────────────────────
+export default function FormRenderer({ fields, formId, onSubmit }: Props) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
@@ -274,125 +244,101 @@ export default function FormRenderer({ schema, formSlug, onSubmit }: Props) {
     reset,
     watch,
     formState: { errors },
-  } = useForm();
+  } = useForm<Record<string, unknown>>();
 
   const watchedValues = watch();
 
   const onFormSubmit = handleSubmit(async (data) => {
     setIsSubmitting(true);
     setSubmitError(null);
-    setSubmitSuccess(false);
 
     try {
-      const textValues: Record<string, any> = {};
+      const textValues: Record<string, unknown> = {};
       const files: Record<string, File | File[]> = {};
 
       for (const [key, value] of Object.entries(data)) {
         if (value instanceof FileList && value.length > 0) {
-          if (value.length === 1) {
-            files[key] = value[0];
-          } else {
-            files[key] = Array.from(value);
-          }
-        } else if (typeof value === "boolean") {
-          textValues[key] = value;
+          files[key] = value.length === 1 ? value[0] : Array.from(value);
         } else if (value !== undefined && value !== null && value !== "") {
           textValues[key] = value;
         }
       }
 
-      await onSubmit(formSlug, textValues, files);
-
+      await onSubmit(formId, textValues, files);
       setSubmitSuccess(true);
       reset();
-
-      setTimeout(() => setSubmitSuccess(false), 5000);
-    } catch (error: any) {
+      setTimeout(() => setSubmitSuccess(false), 6000);
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { responses?: string; detail?: string } }; message?: string };
       setSubmitError(
-        error.response?.data?.message ||
-          error.message ||
-          "Submission failed. Please try again."
+        err.response?.data?.responses ??
+        err.response?.data?.detail ??
+        err.message ??
+        "Submission failed. Please try again."
       );
     } finally {
       setIsSubmitting(false);
     }
   });
 
-  const fields = schema?.fields || [];
+  const sortedFields = [...fields].sort((a, b) => a.order - b.order);
 
-  if (fields.length === 0) {
+  if (sortedFields.length === 0) {
     return (
-      <div className="max-w-xl mx-auto p-6 border border-yellow-200 rounded-lg bg-yellow-50 text-center">
-        <p className="text-yellow-800 font-semibold">No form fields found.</p>
-        <p className="text-sm text-yellow-600 mt-2">
-          This form doesn't have any fields configured yet.
+      <div className="card text-center py-12">
+        <p style={{ color: "var(--color-ink-400)", fontSize: "0.875rem" }}>
+          This form has no fields configured yet.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="max-w-xl mx-auto">
+    <div>
       {submitSuccess && (
-        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-          <p className="text-green-800 font-semibold">
-            ✓ Form submitted successfully!
-          </p>
+        <div className="mb-6 px-4 py-3 bg-green-50 border border-green-200 text-green-800 text-sm">
+          ✓ Form submitted successfully. An admin has been notified.
         </div>
       )}
 
       {submitError && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-800 font-semibold">✗ {submitError}</p>
+        <div className="mb-6 px-4 py-3 bg-red-50 border border-red-200 text-red-800 text-sm">
+          ✗ {submitError}
         </div>
       )}
 
-      <form
-        onSubmit={onFormSubmit}
-        className="p-6 border border-gray-300 rounded-lg shadow-sm bg-white"
-        encType="multipart/form-data"
-      >
-        {fields.map((field, i) => (
+      <form onSubmit={onFormSubmit}>
+        {sortedFields.map((field) => (
           <FieldInput
-            key={i}
+            key={field.id}
             field={field}
-            register={register}
+            register={register as UseFormRegister<Record<string, unknown>>}
             errors={errors}
-            watchValues={watchedValues}
+            watchedValues={watchedValues}
           />
         ))}
 
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-semibold transition-colors"
+          className="btn-primary w-full justify-center mt-2"
         >
           {isSubmitting ? (
-            <span className="flex items-center justify-center">
-              <svg
-                className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
-              Submitting...
+            <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <span
+                className="animate-spin"
+                style={{
+                  width: "1rem", height: "1rem",
+                  border: "2px solid rgba(255,255,255,0.3)",
+                  borderTopColor: "white",
+                  borderRadius: "50%",
+                  display: "inline-block",
+                }}
+              />
+              Submitting…
             </span>
           ) : (
-            "Submit Form"
+            "Submit form"
           )}
         </button>
       </form>

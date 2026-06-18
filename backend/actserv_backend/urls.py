@@ -4,51 +4,52 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import include, path
-from drf_spectacular.views import (SpectacularAPIView, SpectacularRedocView,
-                                   SpectacularSwaggerView)
-from rest_framework_simplejwt.views import (TokenObtainPairView,
-                                            TokenRefreshView)
+from drf_spectacular.views import (
+    SpectacularAPIView,
+    SpectacularRedocView,
+    SpectacularSwaggerView,
+)
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
+    TokenVerifyView,
+)
 
 
-# Simple health check endpoint
 def health_check(request):
+    """Simple liveness probe — useful for Docker / load balancers."""
     return JsonResponse({
         "status": "ok",
-        "message": "Welcome to ActServ API",
-        "available_endpoints": [
-            "/api/forms/",
-            "/api/submissions/",
-            "/api/notifications/",
-            "/admin/",
-            "/api/auth/login/",
-            "/api/auth/refresh/",
-            "/api/schema/",
-            "/api/schema/swagger-ui/",
-            "/api/schema/redoc/"
-        ]
+        "service": "actserv-backend",
+        "version": "1.0.0",
     })
 
 
-# URL patterns
 urlpatterns = [
-    path("", health_check, name="health_check"),
+    # ── Health ─────────────────────────────────────────────────────────────
+    path("", health_check, name="health-check"),
+
+    # ── Django admin ────────────────────────────────────────────────────────
     path("admin/", admin.site.urls),
+
+    # ── Auth ────────────────────────────────────────────────────────────────
+    path("api/auth/login/",   TokenObtainPairView.as_view(),  name="token-obtain"),
+    path("api/auth/refresh/", TokenRefreshView.as_view(),     name="token-refresh"),
+    path("api/auth/verify/",  TokenVerifyView.as_view(),      name="token-verify"),
+
+    # Registration and /me/ (users app)
+    path("api/auth/", include("users.urls")),
+
+    # ── Core API ────────────────────────────────────────────────────────────
     path("api/", include("forms.urls")),
-    path("api/auth/login/", TokenObtainPairView.as_view(),
-         name="token_obtain_pair"),
-    path("api/auth/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
-    path("api/auth/register/", include("users.urls")),
     path("api/", include("notifications.urls")),
 
-    # API schema and docs
-    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
-    path("api/schema/swagger-ui/",
-         SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
-    path("api/schema/redoc/",
-         SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
+    # ── API docs ────────────────────────────────────────────────────────────
+    path("api/schema/",         SpectacularAPIView.as_view(),                       name="schema"),
+    path("api/schema/swagger/", SpectacularSwaggerView.as_view(url_name="schema"),  name="swagger-ui"),
+    path("api/schema/redoc/",   SpectacularRedocView.as_view(url_name="schema"),    name="redoc"),
 ]
 
-# Serve media files in development
+# Serve media files in development only
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL,
-                          document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

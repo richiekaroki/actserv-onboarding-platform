@@ -1,212 +1,148 @@
-// ============================================
-// FILE 9: frontend/src/app/admin/forms/create/page.tsx
-// ============================================
+// frontend/src/app/admin/forms/create/page.tsx
 "use client";
 
-import API from "@/lib/api";
+import { createForm, createField } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import Navbar from "@/components/Navbar";
 
+// ── Example schemas used to pre-populate the JSON editor ──────────────────
 const EXAMPLE_SCHEMAS = {
   basic: {
     fields: [
-      {
-        key: "full_name",
-        label: "Full Name",
-        field_type: "text",
-        required: true,
-      },
-      {
-        key: "email",
-        label: "Email Address",
-        field_type: "text",
-        required: true,
-      },
+      { key: "full_name",  label: "Full Name",       field_type: "text",   required: true  },
+      { key: "email",      label: "Email Address",    field_type: "email",  required: true  },
     ],
   },
   kyc: {
     fields: [
-      {
-        key: "full_name",
-        label: "Full Legal Name",
-        field_type: "text",
-        required: true,
-        help_text: "As it appears on your ID",
-      },
-      {
-        key: "date_of_birth",
-        label: "Date of Birth",
-        field_type: "date",
-        required: true,
-      },
-      {
-        key: "id_document",
-        label: "ID Document",
-        field_type: "file",
-        required: true,
-        help_text: "Upload passport, national ID, or driver's license",
-      },
-      {
-        key: "address_proof",
-        label: "Proof of Address",
-        field_type: "file",
-        required: true,
-      },
+      { key: "full_name",     label: "Full Legal Name", field_type: "text", required: true,
+        help_text: "As it appears on your government-issued ID" },
+      { key: "date_of_birth", label: "Date of Birth",   field_type: "date", required: true  },
+      { key: "nationality",   label: "Nationality",     field_type: "dropdown", required: true,
+        options: ["Kenyan", "Ugandan", "Tanzanian", "Rwandan", "Other"] },
+      { key: "id_document",   label: "ID Document",     field_type: "file", required: true,
+        help_text: "Upload passport, national ID, or driver's license" },
+      { key: "address_proof", label: "Proof of Address", field_type: "file", required: true },
     ],
   },
   loan: {
     fields: [
+      { key: "full_name",          label: "Full Name",         field_type: "text",     required: true  },
+      { key: "loan_amount",        label: "Loan Amount (KES)", field_type: "number",   required: true,
+        help_text: "Enter the amount you wish to borrow" },
+      { key: "employment_status",  label: "Employment Status", field_type: "dropdown", required: true,
+        options: ["Employed", "Self-Employed", "Business Owner", "Unemployed"] },
       {
-        key: "full_name",
-        label: "Full Name",
-        field_type: "text",
-        required: true,
-      },
-      {
-        key: "loan_amount",
-        label: "Loan Amount (KES)",
-        field_type: "number",
-        required: true,
-        help_text: "Enter the amount you wish to borrow",
-      },
-      {
-        key: "income_proof",
-        label: "Income Proof",
-        field_type: "file",
-        required: false,
+        // Conditional validation: income_proof only required when loan_amount > 100000
+        key: "income_proof", label: "Income Proof", field_type: "file", required: false,
+        help_text: "Required for loans above KES 100,000",
         conditional_required: {
-          depends_on: "loan_amount",
-          operator: "gt",
-          value: 100000,
-          message: "Income proof required for loans above KES 100,000",
+          depends_on: "loan_amount", operator: "gt", value: 100000,
+          message: "Income proof is required for loans above KES 100,000",
         },
       },
-      {
-        key: "employment_status",
-        label: "Employment Status",
-        field_type: "dropdown",
-        required: true,
-        options: ["Employed", "Self-Employed", "Business Owner", "Unemployed"],
-      },
-      {
-        key: "terms_accepted",
-        label: "I accept the terms and conditions",
-        field_type: "checkbox",
-        required: true,
-      },
+      { key: "terms_accepted", label: "I accept the terms and conditions",
+        field_type: "checkbox", required: true },
     ],
   },
 };
 
+// Validate schema JSON before attempting to create the form
+function validateSchema(schemaStr: string): string | null {
+  try {
+    const parsed = JSON.parse(schemaStr);
+    if (!parsed.fields || !Array.isArray(parsed.fields)) return "Schema must have a 'fields' array";
+    if (parsed.fields.length === 0) return "Schema must have at least one field";
+    const validTypes = ["text","number","date","dropdown","checkbox","file","email","textarea"];
+    for (let i = 0; i < parsed.fields.length; i++) {
+      const f = parsed.fields[i];
+      if (!f.key)        return `Field ${i + 1}: missing 'key'`;
+      if (!f.label)      return `Field ${i + 1}: missing 'label'`;
+      if (!validTypes.includes(f.field_type))
+        return `Field ${i + 1}: invalid field_type '${f.field_type}'`;
+      if (f.field_type === "dropdown" && !f.options)
+        return `Field ${i + 1}: dropdown fields must have an 'options' array`;
+    }
+    return null;
+  } catch (e: unknown) {
+    return `Invalid JSON: ${(e as Error).message}`;
+  }
+}
+
 export default function CreateFormPage() {
+  const router = useRouter();
   const [formData, setFormData] = useState({
-    name: "",
-    slug: "",
-    description: "",
+    name: "", slug: "", description: "",
     schema: JSON.stringify(EXAMPLE_SCHEMAS.basic, null, 2),
-    schema_version: 1,
     is_active: true,
   });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [schemaError, setSchemaError] = useState("");
-  const router = useRouter();
+  const [loading,     setLoading]     = useState(false);
+  const [error,       setError]       = useState("");
+  const [schemaError, setSchemaError] = useState<string | null>(null);
 
-  const validateSchema = (schemaString: string): boolean => {
-    try {
-      const parsed = JSON.parse(schemaString);
+  const generateSlug = (name: string) =>
+    name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
-      if (!parsed.fields || !Array.isArray(parsed.fields)) {
-        setSchemaError("Schema must have a 'fields' array");
-        return false;
-      }
-
-      if (parsed.fields.length === 0) {
-        setSchemaError("Schema must have at least one field");
-        return false;
-      }
-
-      const validFieldTypes = [
-        "text",
-        "number",
-        "date",
-        "dropdown",
-        "checkbox",
-        "file",
-      ];
-
-      for (let i = 0; i < parsed.fields.length; i++) {
-        const field = parsed.fields[i];
-
-        if (!field.key || typeof field.key !== "string") {
-          setSchemaError(`Field ${i + 1}: Missing or invalid 'key'`);
-          return false;
-        }
-
-        if (!field.label || typeof field.label !== "string") {
-          setSchemaError(`Field ${i + 1}: Missing or invalid 'label'`);
-          return false;
-        }
-
-        if (!validFieldTypes.includes(field.field_type)) {
-          setSchemaError(
-            `Field ${i + 1}: Invalid field_type '${
-              field.field_type
-            }'. Must be one of: ${validFieldTypes.join(", ")}`
-          );
-          return false;
-        }
-
-        if (field.field_type === "dropdown" && !field.options) {
-          setSchemaError(
-            `Field ${i + 1}: Dropdown fields must have 'options' array`
-          );
-          return false;
-        }
-      }
-
-      setSchemaError("");
-      return true;
-    } catch (e: any) {
-      setSchemaError(`Invalid JSON: ${e.message}`);
-      return false;
-    }
+  const handleSchemaChange = (value: string) => {
+    setFormData((f) => ({ ...f, schema: value }));
+    setSchemaError(validateSchema(value));
   };
 
-  const handleSchemaChange = (newSchema: string) => {
-    setFormData({ ...formData, schema: newSchema });
-    validateSchema(newSchema);
-  };
-
-  const loadExample = (exampleKey: keyof typeof EXAMPLE_SCHEMAS) => {
-    const schema = JSON.stringify(EXAMPLE_SCHEMAS[exampleKey], null, 2);
-    setFormData({ ...formData, schema });
-    setSchemaError("");
+  const loadExample = (key: keyof typeof EXAMPLE_SCHEMAS) => {
+    const s = JSON.stringify(EXAMPLE_SCHEMAS[key], null, 2);
+    setFormData((f) => ({ ...f, schema: s }));
+    setSchemaError(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const schErr = validateSchema(formData.schema);
+    if (schErr) { setSchemaError(schErr); return; }
+
     setLoading(true);
     setError("");
 
-    if (!validateSchema(formData.schema)) {
-      setLoading(false);
-      return;
-    }
-
     try {
-      const submissionData = {
-        ...formData,
-        schema: JSON.parse(formData.schema),
-      };
+      const parsed = JSON.parse(formData.schema);
 
-      await API.post("forms/", submissionData);
+      // Step 1: create the Form record (schema JSON is stored as-is for reference)
+      const created = await createForm({
+        name:        formData.name,
+        slug:        formData.slug,
+        description: formData.description,
+        schema:      parsed,
+        is_active:   formData.is_active,
+      });
+
+      // Step 2: create each Field row via the nested endpoint
+      // This is what makes validation actually work — the backend reads Field rows,
+      // not schema.fields, when validating submissions.
+      for (let i = 0; i < parsed.fields.length; i++) {
+        const f = parsed.fields[i];
+        await createField(created.slug, {
+          key:        f.key,
+          label:      f.label,
+          field_type: f.field_type,
+          required:   f.required ?? false,
+          options:    f.options ?? null,
+          validation: f.conditional_required
+            ? { conditional_required: f.conditional_required }
+            : null,
+          order:       i,
+          placeholder: f.placeholder ?? "",
+          help_text:   f.help_text ?? "",
+        });
+      }
+
       router.push("/admin");
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { slug?: string[]; name?: string[]; detail?: string } } };
       setError(
-        err.response?.data?.error ||
-          err.response?.data?.detail ||
-          "Failed to create form"
+        e.response?.data?.slug?.[0] ??
+        e.response?.data?.name?.[0] ??
+        e.response?.data?.detail ??
+        "Failed to create form. Please try again."
       );
     } finally {
       setLoading(false);
@@ -214,196 +150,163 @@ export default function CreateFormPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">Create New Form</h1>
-          <p className="text-gray-600">
-            Define your form schema using JSON configuration
+    <div className="min-h-screen" style={{ background: "var(--color-surface)" }}>
+      <Navbar />
+      <div style={{ maxWidth: "900px", margin: "0 auto", padding: "3rem 1.5rem" }}>
+
+        <div className="page-header">
+          <h1 className="page-title">Create New Form</h1>
+          <p className="page-subtitle">
+            Define your form using JSON — fields are created as individual records
+            so validation rules apply per-form automatically.
           </p>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Form Name *
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="e.g., KYC Application"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Slug (URL) *
-                </label>
-                <input
-                  type="text"
-                  value={formData.slug}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      slug: e.target.value.toLowerCase().replace(/\s+/g, "-"),
-                    })
-                  }
-                  className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="e.g., kyc-application"
-                  required
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Will be accessible at /forms/{formData.slug || "your-slug"}
-                </p>
-              </div>
-            </div>
-
+        <form onSubmit={handleSubmit}>
+          {/* Name + Slug */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", marginBottom: "1.5rem" }}>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Description
-              </label>
-              <textarea
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                rows={2}
-                placeholder="Brief description of this form"
-              />
-            </div>
-
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Schema (JSON) *
-                </label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => loadExample("basic")}
-                    className="text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded"
-                  >
-                    Basic
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => loadExample("kyc")}
-                    className="text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded"
-                  >
-                    KYC
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => loadExample("loan")}
-                    className="text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded"
-                  >
-                    Loan
-                  </button>
-                </div>
-              </div>
-
-              <textarea
-                value={formData.schema}
-                onChange={(e) => handleSchemaChange(e.target.value)}
-                className={`w-full border rounded-lg p-3 focus:outline-none focus:ring-2 font-mono text-sm ${
-                  schemaError
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 focus:ring-blue-500"
-                }`}
-                rows={16}
+              <label className="label">Form name *</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => {
+                  const name = e.target.value;
+                  setFormData((f) => ({ ...f, name, slug: f.slug || generateSlug(name) }));
+                }}
+                placeholder="e.g. KYC Application"
                 required
+                className="input"
               />
+            </div>
+            <div>
+              <label className="label">Slug (URL) *</label>
+              <input
+                type="text"
+                value={formData.slug}
+                onChange={(e) =>
+                  setFormData((f) => ({ ...f, slug: e.target.value.toLowerCase().replace(/\s+/g, "-") }))
+                }
+                placeholder="e.g. kyc-application"
+                required
+                className="input"
+              />
+              <p className="text-xs mt-1" style={{ color: "var(--color-ink-300)", fontFamily: "var(--font-mono)" }}>
+                /forms/{formData.slug || "your-slug"}
+              </p>
+            </div>
+          </div>
 
-              {schemaError ? (
-                <div className="mt-2 bg-red-50 border border-red-200 rounded-lg p-3">
-                  <p className="text-red-700 text-sm font-semibold">
-                    ✗ Schema Error
-                  </p>
-                  <p className="text-red-600 text-sm mt-1">{schemaError}</p>
-                </div>
-              ) : (
-                <div className="mt-2 bg-green-50 border border-green-200 rounded-lg p-3">
-                  <p className="text-green-700 text-sm">✓ Valid JSON schema</p>
-                </div>
-              )}
+          {/* Description */}
+          <div style={{ marginBottom: "1.5rem" }}>
+            <label className="label">Description</label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData((f) => ({ ...f, description: e.target.value }))}
+              placeholder="Brief description of this form"
+              rows={2}
+              className="input"
+              style={{ resize: "none" }}
+            />
+          </div>
 
-              <details className="mt-2">
-                <summary className="text-sm text-gray-600 cursor-pointer hover:text-gray-800">
-                  Schema Documentation
-                </summary>
-                <div className="mt-2 bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm">
-                  <h4 className="font-semibold mb-2">Field Types:</h4>
-                  <ul className="list-disc list-inside space-y-1 text-gray-700">
-                    <li>
-                      <code>text</code> - Single line text input
-                    </li>
-                    <li>
-                      <code>number</code> - Numeric input
-                    </li>
-                    <li>
-                      <code>date</code> - Date picker
-                    </li>
-                    <li>
-                      <code>dropdown</code> - Select from options (requires{" "}
-                      <code>options</code> array)
-                    </li>
-                    <li>
-                      <code>checkbox</code> - True/false checkbox
-                    </li>
-                    <li>
-                      <code>file</code> - File upload (supports multiple files)
-                    </li>
-                  </ul>
-                  <h4 className="font-semibold mt-3 mb-2">
-                    Conditional Validation:
-                  </h4>
-                  <pre className="bg-white p-2 rounded text-xs overflow-auto">
-                    {`"conditional_required": {
-  "depends_on": "loan_amount",
-  "operator": "gt", // gt, gte, lt, lte, eq, ne
-  "value": 100000,
-  "message": "Required for loans above 100k"
-}`}
-                  </pre>
-                </div>
-              </details>
+          {/* Schema editor */}
+          <div style={{ marginBottom: "1.5rem" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+              <label className="label" style={{ marginBottom: 0 }}>Schema (JSON) *</label>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                {(["basic", "kyc", "loan"] as const).map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => loadExample(key)}
+                    style={{
+                      fontSize: "0.7rem", fontFamily: "var(--font-mono)",
+                      padding: "0.2rem 0.6rem",
+                      border: "1px solid var(--color-ink-200)",
+                      background: "var(--color-surface-raised)",
+                      color: "var(--color-ink-600)",
+                      cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.05em",
+                    }}
+                  >
+                    {key}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <p className="text-red-700 text-sm font-semibold">
-                  ✗ Error Creating Form
-                </p>
-                <p className="text-red-600 text-sm mt-1">{error}</p>
-              </div>
+            <textarea
+              value={formData.schema}
+              onChange={(e) => handleSchemaChange(e.target.value)}
+              rows={18}
+              className={`input ${schemaError ? "input-error" : ""}`}
+              style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem", resize: "vertical" }}
+              required
+            />
+
+            {schemaError ? (
+              <p className="mt-2 text-xs text-red-600">✗ {schemaError}</p>
+            ) : (
+              <p className="mt-2 text-xs" style={{ color: "#15803D" }}>✓ Valid JSON schema</p>
             )}
 
-            <div className="flex gap-4">
-              <button
-                type="submit"
-                disabled={loading || !!schemaError}
-                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-semibold transition-colors"
+            <details className="mt-3">
+              <summary
+                className="text-xs cursor-pointer"
+                style={{ color: "var(--color-ink-400)", fontFamily: "var(--font-mono)" }}
               >
-                {loading ? "Creating..." : "Create Form"}
-              </button>
-              <button
-                type="button"
-                onClick={() => router.back()}
-                className="border border-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-50 font-semibold transition-colors"
+                Schema reference
+              </summary>
+              <div
+                className="mt-2 card text-xs"
+                style={{ fontFamily: "var(--font-mono)", lineHeight: 1.8 }}
               >
-                Cancel
-              </button>
-            </div>
-          </form>
-        </div>
+                <strong>field_type:</strong> text · email · number · date · dropdown · checkbox · file · textarea<br />
+                <strong>required:</strong> true / false<br />
+                <strong>options:</strong> ["A", "B"] — dropdown only<br />
+                <strong>conditional_required:</strong> {`{ depends_on, operator (gt/gte/lt/lte/eq/ne), value, message }`}
+              </div>
+            </details>
+          </div>
+
+          {/* Active toggle */}
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "2rem" }}>
+            <input
+              type="checkbox"
+              id="is_active"
+              checked={formData.is_active}
+              onChange={(e) => setFormData((f) => ({ ...f, is_active: e.target.checked }))}
+              className="h-4 w-4"
+              style={{ accentColor: "var(--color-ink-900)" }}
+            />
+            <label htmlFor="is_active" className="text-sm" style={{ color: "var(--color-ink-700)" }}>
+              Publish form immediately (visible to clients)
+            </label>
+          </div>
+
+          {error && (
+            <p className="text-sm px-4 py-3 bg-red-50 border border-red-200 text-red-700 mb-6">
+              {error}
+            </p>
+          )}
+
+          <div style={{ display: "flex", gap: "1rem" }}>
+            <button
+              type="submit"
+              disabled={loading || !!schemaError}
+              className="btn-primary"
+            >
+              {loading ? "Creating…" : "Create form"}
+            </button>
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="btn-secondary"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

@@ -1,27 +1,25 @@
 // frontend/src/app/layout.tsx
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/components/Navbar";
-
-const inter = Inter({ subsets: ["latin"], display: "swap" });
 
 export const metadata: Metadata = {
-  title: "ACTSERV Form Builder",
+  title: "ActServ — Client Onboarding",
   description:
     "Dynamic onboarding forms for financial services — KYC, loans, investments, and more.",
-  icons: {
-    icon: "/favicon.ico",
-  },
   openGraph: {
-    title: "ACTSERV Form Builder",
+    title: "ActServ — Client Onboarding",
     description:
-      "Build and manage dynamic onboarding forms for financial services — powered by Next.js and Tailwind CSS.",
+      "Build and manage dynamic onboarding forms for financial services.",
     type: "website",
     locale: "en_US",
   },
 };
 
+// Navbar is NOT rendered here because:
+// 1. Some pages (login, register, homepage) have their own nav or no nav
+// 2. Navbar uses client-only cookie auth — including it in a server layout
+//    causes hydration mismatches
+// Each page that needs the nav imports <Navbar /> directly.
 export default function RootLayout({
   children,
 }: {
@@ -29,13 +27,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="scroll-smooth">
-      <body
-        className={`${inter.className} antialiased bg-[radial-gradient(circle_at_top_left,_#dbeafe_0%,_#e0e7ff_40%,_#f8fafc_100%)] text-gray-800`}
-      >
-        <Navbar />
-        <main className="pt-4 md:pt-6">{children}</main>
+      <body className="antialiased">
+        {children}
       </body>
     </html>
   );
 }
-

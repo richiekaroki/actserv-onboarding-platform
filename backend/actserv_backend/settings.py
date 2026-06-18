@@ -1,25 +1,28 @@
 # ===== backend/actserv_backend/settings.py =====
-
 """
 Django settings for actserv_backend project.
 """
 
 import os
+import logging
 from datetime import timedelta
 from pathlib import Path
 
+import dj_database_url
+from dotenv import load_dotenv
+
+load_dotenv()
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# ===== SECURITY SETTINGS =====
-SECRET_KEY = os.environ.get(
-    'SECRET_KEY', 'dev-insecure-key-change-in-production')
+# ===== SECURITY =====
+if not os.getenv('SECRET_KEY'):
+    raise RuntimeError('SECRET_KEY environment variable must be set for production')
+SECRET_KEY = os.getenv('SECRET_KEY')
+DEBUG = os.getenv('DEBUG', 'False').lower() in ('1', 'true', 'yes')
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
-DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
-
-ALLOWED_HOSTS = os.environ.get(
-    'ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
-
-# ===== APPLICATION DEFINITION =====
+# ===== APPS =====
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -27,19 +30,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-
-    # Third-party apps
     'drf_spectacular',
     'rest_framework',
     'corsheaders',
-
-    # Local apps
     'forms',
     'notifications',
     'users',
 ]
 
-# ADD THIS LINE - Custom User Model
 AUTH_USER_MODEL = 'users.CustomUser'
 
 MIDDLEWARE = [
@@ -73,42 +71,47 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'actserv_backend.wsgi.application'
 
-# ===== DATABASE CONFIGURATION =====
-# Replace the current DATABASES section with this:
+# ===== DATABASE =====
+# ─────────────────────────────────────────────────────────────────────────────
+# IMPORTANT: dj_database_url.config() returns {} when DATABASE_URL is empty,
+# which causes "ImproperlyConfigured: Please supply the ENGINE value."
+# We always provide a fallback so the backend is never unconfigured.
+# ─────────────────────────────────────────────────────────────────────────────
+_db_url = os.environ.get('DATABASE_URL', '').strip()
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+if _db_url:
+    # Explicit DATABASE_URL set (SQLite path or PostgreSQL connection string)
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=_db_url,
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
     }
-}
-
-# Optional: For production with PostgreSQL
-# You can set DATABASE_URL environment variable later
+else:
+    # Nothing set — fall back to SQLite in the project root
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 # ===== PASSWORD VALIDATION =====
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-# ===== INTERNATIONALIZATION =====
-LANGUAGE_CODE = 'en-uk'
-TIME_ZONE = 'UTC'
+# ===== I18N =====
+LANGUAGE_CODE = 'en-gb'
+TIME_ZONE = 'Africa/Nairobi'
 USE_I18N = True
 USE_TZ = True
 
-# ===== STATIC FILES =====
+# ===== STATIC / MEDIA =====
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
@@ -117,52 +120,70 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# ===== CELERY CONFIGURATION =====
-CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
-CELERY_RESULT_BACKEND = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+# ===== CELERY =====
+_redis_url = os.environ.get('REDIS_URL', '').strip()
+
+CELERY_BROKER_URL = _redis_url or 'redis://localhost:6379/0'
+CELERY_RESULT_BACKEND = _redis_url or 'redis://localhost:6379/0'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'UTC'
+CELERY_TIMEZONE = 'Africa/Nairobi'
 
-if DEBUG and not os.environ.get('REDIS_URL'):
+# Run tasks synchronously when Redis is not configured (dev / CI)
+if not _redis_url:
     CELERY_TASK_ALWAYS_EAGER = True
     CELERY_TASK_EAGER_PROPAGATES = True
 
-# ===== CORS SETTINGS =====
+# Ensure Redis broker is configured in production
+if not DEBUG and not _redis_url:
+    raise RuntimeError('REDIS_URL environment variable must be set in production')
+
+# ===== CORS =====
 CORS_ALLOWED_ORIGINS = [
-    origin.strip() for origin in
-    os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:3000').split(',')
+    o.strip()
+    for o in os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:3000').split(',')
 ]
 CORS_ALLOW_CREDENTIALS = True
 
-# ===== REST FRAMEWORK CONFIGURATION =====
+# ===== REST FRAMEWORK =====
 REST_FRAMEWORK = {
+    # Default permission – require authentication for all endpoints unless overridden
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+    # Throttling to protect public endpoints (e.g., submissions)
+    'DEFAULT_THROTTLE_CLASSES': (
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ),
+    # Rates can be overridden per-view; set conservative defaults here
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '10/min',   # 10 requests per minute for anonymous users
+        'user': '100/min',  # 100 requests per minute for authenticated users
+    },
+
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
-    ],
+
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
 }
 
-# ===== API DOCUMENTATION =====
+# ===== API DOCS =====
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'ActServ API',
-    'DESCRIPTION': 'API documentation for ActServ Backend',
+    'TITLE': 'ActServ Onboarding API',
+    'DESCRIPTION': 'Dynamic form onboarding platform for financial services',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
-    'SWAGGER_UI_SETTINGS': {
-        'persistAuthorization': True,
-    },
+    'SWAGGER_UI_SETTINGS': {'persistAuthorization': True},
     'COMPONENT_SPLIT_REQUEST': True,
     'SCHEMA_PATH_PREFIX': '/api/',
 }
 
-# ===== JWT CONFIGURATION =====
+# ===== JWT =====
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(
         minutes=int(os.environ.get('JWT_ACCESS_TOKEN_LIFETIME_MINUTES', 60))
@@ -173,7 +194,61 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'UPDATE_LAST_LOGIN': True,
-
-    # Add custom claims
     'TOKEN_OBTAIN_SERIALIZER': 'users.serializers.CustomTokenObtainPairSerializer',
+}
+
+# ===== EMAIL =====
+EMAIL_BACKEND = os.environ.get(
+    'EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend'
+)
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'no-reply@actserv.local')
+ADMIN_NOTIFICATION_EMAILS = [
+    e.strip()
+    for e in os.environ.get('ADMIN_NOTIFICATION_EMAILS', 'admin@actserv.local').split(',')
+]
+
+# ===== LOGGING =====
+
+# Security settings (enabled for production)
+if not DEBUG:
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = 'DENY'
+    # Ensure CSRF cookie is secure and HttpOnly
+    CSRF_COOKIE_SECURE = True
+    CSRF_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SECURE = True
+    # Enforce HTTPS (if behind proxy set SECURE_PROXY_SSL_HEADER accordingly)
+    SECURE_SSL_REDIRECT = True
+    # HSTS settings (optional, can be tuned)
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {'handlers': ['console'], 'level': 'WARNING'},
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': os.environ.get('DJANGO_LOG_LEVEL', 'INFO'),
+            'propagate': False,
+        },
+        'forms':         {'handlers': ['console'], 'level': 'DEBUG' if DEBUG else 'INFO', 'propagate': False},
+        'notifications': {'handlers': ['console'], 'level': 'DEBUG' if DEBUG else 'INFO', 'propagate': False},
+        'users':         {'handlers': ['console'], 'level': 'DEBUG' if DEBUG else 'INFO', 'propagate': False},
+    },
 }

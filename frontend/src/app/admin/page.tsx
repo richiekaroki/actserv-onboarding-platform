@@ -1,16 +1,16 @@
-// ============================================
-// FILE 3: frontend/src/app/admin/page.tsx (UPDATED WITH EDIT BUTTON)
-// ============================================
+// frontend/src/app/admin/page.tsx
 "use client";
 
-import FormBuilder from "@/components/FormBuilder";
 import {
-  createForm,
   getForms,
+  getSubmissions,
+  getNotifications,
+  updateSubmissionStatus,
+  loadCurrentUser,
   isAdmin,
-  isAuthenticated,
   logout,
 } from "@/lib/api";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -22,232 +22,309 @@ interface Form {
   is_active: boolean;
   created_at: string;
   submission_count: number;
+  fields: { id: string }[];
+}
+
+interface Submission {
+  id: string;
+  form: string;
+  status: "submitted" | "reviewed" | "approved" | "rejected";
+  created_at: string;
+  client_identifier: string | null;
+  submitted_by: string | null;
 }
 
 export default function AdminDashboard() {
-  const [forms, setForms] = useState<Form[]>([]);
-  const [showFormBuilder, setShowFormBuilder] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [authChecked, setAuthChecked] = useState(false);
   const router = useRouter();
+  const [forms,       setForms]       = useState<Form[]>([]);
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [unread,      setUnread]      = useState(0);
+  const [loading,     setLoading]     = useState(true);
 
   useEffect(() => {
-    checkAuthAndLoadData();
-  }, [router]);
-
-  const checkAuthAndLoadData = async () => {
-    if (!isAuthenticated()) {
-      router.push("/login");
-      return;
-    }
-
-    if (!isAdmin()) {
-      router.push("/forms");
-      return;
-    }
-
-    setAuthChecked(true);
-    await loadForms();
-  };
-
-  const loadForms = async () => {
-    try {
-      const formsData = await getForms();
-      setForms(formsData);
-    } catch (error) {
-      console.error("Failed to load forms:", error);
-      if ((error as any).response?.status === 401) {
-        router.push("/login");
+    loadCurrentUser().then((user) => {
+      if (!user || !isAdmin()) {
+        router.push(user ? "/forms" : "/login");
+        return;
       }
+      fetchAll();
+    });
+  }, []);
+
+  const fetchAll = async () => {
+    try {
+      const [formsData, subsData, notifsData] = await Promise.all([
+        getForms(),
+        getSubmissions(),
+        getNotifications(),
+      ]);
+      setForms(formsData);
+      setSubmissions(subsData);
+      setUnread(notifsData.filter((n: { is_read: boolean }) => !n.is_read).length);
+    } catch (err) {
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreateForm = async (formData: any) => {
+  const handleStatusChange = async (id: string, status: string) => {
     try {
-      await createForm(formData);
-      await loadForms();
-      setShowFormBuilder(false);
-      alert("Form created successfully!");
-    } catch (error: any) {
-      console.error("Failed to create form:", error);
-      if (error.response?.status === 401) {
-        alert("Please log in again");
-        router.push("/login");
-      } else {
-        alert("Failed to create form. Please try again.");
-      }
+      await updateSubmissionStatus(id, status);
+      setSubmissions((prev) =>
+        prev.map((s) =>
+          s.id === id ? { ...s, status: status as Submission["status"] } : s
+        )
+      );
+    } catch {
+      alert("Failed to update status.");
     }
   };
 
-  const handleLogout = () => {
-    logout();
-    router.push("/");
-  };
+  const pending = submissions.filter((s) => s.status === "submitted").length;
+  const totalSubmissions = submissions.length;
 
-  if (!authChecked && loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-lg text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+  const statCards = [
+    { label: "Total Forms",    value: forms.length,      href: "/admin/forms",         accent: "var(--color-ink-900)" },
+    { label: "Submissions",    value: totalSubmissions,   href: "#submissions",          accent: "var(--color-gold)"    },
+    { label: "Pending Review", value: pending,            href: "#submissions",          accent: "#F59E0B"               },
+    { label: "Unread Alerts",  value: unread,             href: "/admin/notifications",  accent: "#3B82F6"               },
+  ];
 
-  if (!isAdmin() && isAuthenticated()) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-lg text-gray-600">Redirecting...</p>
-        </div>
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: "var(--color-surface)" }}
+      >
+        <span
+          className="animate-spin"
+          style={{
+            width: "2rem", height: "2rem",
+            border: "2px solid var(--color-ink-100)",
+            borderTopColor: "var(--color-ink-900)",
+            borderRadius: "50%",
+            display: "inline-block",
+          }}
+        />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-800">
-                Admin Dashboard
-              </h1>
-              <p className="text-gray-600">Manage your forms and submissions</p>
-            </div>
-            <div className="flex gap-4">
-              <button
-                onClick={() => router.push("/admin/forms/create")}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-              >
-                Create New Form
-              </button>
-              <button
-                onClick={handleLogout}
-                className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
+    <div className="min-h-screen" style={{ background: "var(--color-surface)" }}>
+
+      {/* ── Top bar ── */}
+      <div
+        style={{
+          background: "var(--color-surface-raised)",
+          borderBottom: "1px solid var(--color-ink-100)",
+          padding: "1.25rem 1.5rem",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <span style={{ fontFamily: "var(--font-display)", fontSize: "1.5rem", color: "var(--color-ink-900)" }}>
+          ActServ Admin
+        </span>
+        <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+          <Link href="/admin/forms/create" className="btn-primary" style={{ padding: "0.5rem 1rem", fontSize: "0.8rem" }}>
+            + New Form
+          </Link>
+          <button onClick={logout} className="btn-secondary" style={{ padding: "0.5rem 1rem", fontSize: "0.8rem" }}>
+            Sign out
+          </button>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="container mx-auto px-4 py-8">
-        {showFormBuilder ? (
-          <FormBuilder
-            onSubmit={handleCreateForm}
-            onCancel={() => setShowFormBuilder(false)}
-          />
-        ) : (
-          <>
-            {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <div className="bg-white p-6 rounded-lg shadow-sm border">
-                <h3 className="text-lg font-semibold text-gray-800">Forms</h3>
-                <p className="text-3xl font-bold text-blue-600">
-                  {forms.length}
-                </p>
-                <p className="text-sm text-gray-600">forms created</p>
-              </div>
-              <div className="bg-white p-6 rounded-lg shadow-sm border">
-                <h3 className="text-lg font-semibold text-gray-800">
-                  Submissions
-                </h3>
-                <p className="text-3xl font-bold text-green-600">
-                  {forms.reduce((acc, form) => acc + form.submission_count, 0)}
-                </p>
-                <p className="text-sm text-gray-600">total submissions</p>
-              </div>
-              <div className="bg-white p-6 rounded-lg shadow-sm border">
-                <h3 className="text-lg font-semibold text-gray-800">Active</h3>
-                <p className="text-3xl font-bold text-purple-600">
-                  {forms.filter((f) => f.is_active).length}
-                </p>
-                <p className="text-sm text-gray-600">active forms</p>
-              </div>
+      <div style={{ maxWidth: "1280px", margin: "0 auto", padding: "3rem 1.5rem" }}>
+
+        {/* ── Stat cards ── */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+            gap: "1rem",
+            marginBottom: "3rem",
+          }}
+        >
+          {statCards.map((s, i) => (
+            <Link
+              key={s.label}
+              href={s.href}
+              className="card-hover animate-fade-up"
+              style={{
+                borderLeft: `4px solid ${s.accent}`,
+                animationDelay: `${i * 60}ms`,
+                opacity: 0,
+                animationFillMode: "forwards",
+              }}
+            >
+              <p style={{ fontFamily: "var(--font-display)", fontSize: "2.5rem", color: "var(--color-ink-900)", lineHeight: 1 }}>
+                {s.value}
+              </p>
+              <p className="text-xs font-mono tracking-wide mt-1" style={{ color: "var(--color-ink-400)" }}>
+                {s.label}
+              </p>
+            </Link>
+          ))}
+        </div>
+
+        {/* ── Forms ── */}
+        <div style={{ marginBottom: "3rem" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: "1rem",
+            }}
+          >
+            <h2 style={{ fontFamily: "var(--font-display)", fontSize: "1.5rem", color: "var(--color-ink-900)" }}>
+              Forms
+            </h2>
+            <Link
+              href="/admin/forms/create"
+              className="text-xs font-mono tracking-widest uppercase"
+              style={{ color: "var(--color-ink-400)" }}
+            >
+              Create new →
+            </Link>
+          </div>
+
+          {forms.length === 0 ? (
+            <div className="card text-center py-12">
+              <p className="text-sm" style={{ color: "var(--color-ink-400)" }}>
+                No forms yet.{" "}
+                <Link href="/admin/forms/create" style={{ color: "var(--color-ink-900)", textDecoration: "underline" }}>
+                  Create your first form
+                </Link>
+              </p>
             </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              {forms.map((form) => (
+                <div
+                  key={form.id}
+                  className="card"
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
+                >
+                  <div>
+                    <h3 style={{ fontFamily: "var(--font-display)", fontSize: "1.1rem", color: "var(--color-ink-900)" }}>
+                      {form.name}
+                    </h3>
+                    <p className="text-xs font-mono mt-0.5" style={{ color: "var(--color-ink-300)" }}>
+                      /{form.slug} · {form.fields?.length ?? 0} fields · {form.submission_count} submissions
+                    </p>
+                  </div>
+                  <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+                    <span
+                      className="badge"
+                      style={
+                        form.is_active
+                          ? { background: "#F0FDF4", color: "#15803D", border: "1px solid #BBF7D0" }
+                          : { background: "var(--color-ink-50)", color: "var(--color-ink-400)", border: "1px solid var(--color-ink-200)" }
+                      }
+                    >
+                      {form.is_active ? "active" : "inactive"}
+                    </span>
+                    <Link
+                      href={`/forms/${form.slug}`}
+                      target="_blank"
+                      className="text-xs"
+                      style={{ color: "var(--color-ink-400)", textDecoration: "underline" }}
+                    >
+                      Preview
+                    </Link>
+                    <Link
+                      href={`/admin/forms/edit?slug=${form.slug}`}
+                      className="text-xs"
+                      style={{ color: "var(--color-ink-700)", textDecoration: "underline" }}
+                    >
+                      Edit
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
-            {/* Forms List */}
-            <div className="bg-white rounded-lg shadow-sm border">
-              <div className="p-6 border-b">
-                <h2 className="text-xl font-semibold text-gray-800">Forms</h2>
-              </div>
+        {/* ── Recent submissions ── */}
+        <div id="submissions">
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: "1rem",
+            }}
+          >
+            <h2 style={{ fontFamily: "var(--font-display)", fontSize: "1.5rem", color: "var(--color-ink-900)" }}>
+              Recent Submissions
+            </h2>
+            {unread > 0 && (
+              <Link
+                href="/admin/notifications"
+                className="text-xs font-mono tracking-widest uppercase"
+                style={{ color: "#3B82F6" }}
+              >
+                {unread} unread alert{unread > 1 ? "s" : ""} →
+              </Link>
+            )}
+          </div>
 
-              {forms.length === 0 ? (
-                <div className="p-12 text-center">
-                  <div className="text-gray-400 text-6xl mb-4">📋</div>
-                  <h3 className="text-lg font-semibold text-gray-700 mb-2">
-                    No forms created yet
-                  </h3>
-                  <p className="text-gray-600 mb-6">
-                    Get started by creating your first form
-                  </p>
-                  <button
-                    onClick={() => router.push("/admin/forms/create")}
-                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+          {submissions.length === 0 ? (
+            <div className="card text-center py-12">
+              <p className="text-sm" style={{ color: "var(--color-ink-400)" }}>No submissions yet.</p>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              {submissions.slice(0, 10).map((sub) => (
+                <div
+                  key={sub.id}
+                  className="card"
+                  style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p className="font-mono text-sm" style={{ color: "var(--color-ink-900)" }}>
+                      {sub.id.slice(0, 8)}…
+                    </p>
+                    <p className="text-xs mt-0.5" style={{ color: "var(--color-ink-400)" }}>
+                      {sub.client_identifier ?? sub.submitted_by ?? "Anonymous"} ·{" "}
+                      {new Date(sub.created_at).toLocaleDateString("en-GB", {
+                        day: "numeric", month: "short", year: "numeric",
+                      })}
+                    </p>
+                  </div>
+
+                  {/* Inline status changer */}
+                  <select
+                    value={sub.status}
+                    onChange={(e) => handleStatusChange(sub.id, e.target.value)}
+                    style={{
+                      fontSize: "0.75rem",
+                      fontFamily: "var(--font-mono)",
+                      border: "1px solid var(--color-ink-200)",
+                      padding: "0.25rem 0.5rem",
+                      background: "var(--color-surface-raised)",
+                      color: "var(--color-ink-700)",
+                      cursor: "pointer",
+                    }}
                   >
-                    Create Form
-                  </button>
+                    <option value="submitted">submitted</option>
+                    <option value="reviewed">reviewed</option>
+                    <option value="approved">approved</option>
+                    <option value="rejected">rejected</option>
+                  </select>
+
+                  <span className={`badge badge-${sub.status}`}>{sub.status}</span>
                 </div>
-              ) : (
-                <div className="divide-y">
-                  {forms.map((form) => (
-                    <div key={form.id} className="p-6 hover:bg-gray-50">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-semibold text-gray-800">
-                            {form.name}
-                          </h3>
-                          <p className="text-gray-600 text-sm mt-1">
-                            {form.description}
-                          </p>
-                          <div className="flex gap-4 mt-2 text-sm text-gray-500">
-                            <span>/{form.slug}</span>
-                            <span>{form.submission_count} submissions</span>
-                            <span
-                              className={`px-2 py-1 rounded-full text-xs ${
-                                form.is_active
-                                  ? "bg-green-100 text-green-800"
-                                  : "bg-gray-100 text-gray-800"
-                              }`}
-                            >
-                              {form.is_active ? "Active" : "Inactive"}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <a
-                            href={`/forms/${form.slug}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-800 text-sm"
-                          >
-                            View Form
-                          </a>
-                          <button
-                            onClick={() =>
-                              router.push(`/admin/forms/edit/${form.id}`)
-                            }
-                            className="text-gray-600 hover:text-gray-800 text-sm font-medium"
-                          >
-                            Edit
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              ))}
             </div>
-          </>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

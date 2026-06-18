@@ -1,58 +1,212 @@
 /* frontend/src/app/globals.css */
+/* Tailwind v4: uses @import instead of @tailwind directives */
 @import "tailwindcss";
 
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=DM+Mono:wght@400;500&display=swap');
+
+/* ── Design tokens ── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-ink:          #0D1117;
+  --color-ink-50:       #F4F5F7;
+  --color-ink-100:      #E8EAED;
+  --color-ink-200:      #C9CDD4;
+  --color-ink-300:      #9AA0AB;
+  --color-ink-400:      #6B7280;
+  --color-ink-600:      #374151;
+  --color-ink-700:      #1F2937;
+  --color-ink-900:      #0D1117;
+
+  --color-gold:         #C9A84C;
+  --color-gold-light:   #E8D49A;
+  --color-gold-dark:    #8B6914;
+
+  --color-surface:      #FAFAF8;
+  --color-surface-raised: #FFFFFF;
+  --color-surface-sunken: #F0EFE9;
+
+  --font-display: 'Cormorant Garamond', serif;
+  --font-body:    'DM Sans', sans-serif;
+  --font-mono:    'DM Mono', monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* ── Base ── */
+html { font-family: var(--font-body); }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-  line-height: 1.6;
+  background-color: var(--color-surface);
+  color: var(--color-ink-900);
+  -webkit-font-smoothing: antialiased;
 }
 
-html {
-  scroll-behavior: smooth;
+h1, h2, h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
 }
 
-button:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
-  outline: 2px solid #3b82f6;
-  outline-offset: 2px;
+/* ── Thin scrollbar ── */
+::-webkit-scrollbar        { width: 4px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: var(--color-ink-200); border-radius: 2px; }
+
+/* ── Buttons ── */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background-color: var(--color-ink-900);
+  color: white;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.025em;
+  transition: background-color 0.2s, transform 0.1s;
+  cursor: pointer;
+  border: none;
+}
+.btn-primary:hover   { background-color: var(--color-ink-700); }
+.btn-primary:active  { transform: scale(0.98); }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border: 1px solid var(--color-ink-200);
+  color: var(--color-ink-700);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: border-color 0.2s, color 0.2s;
+  background: transparent;
+  cursor: pointer;
+}
+.btn-secondary:hover { border-color: var(--color-ink-400); color: var(--color-ink-900); }
+
+.btn-gold {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background-color: var(--color-gold);
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background-color 0.2s;
+  border: none;
+  cursor: pointer;
+}
+.btn-gold:hover { background-color: var(--color-gold-dark); }
+
+/* ── Form inputs ── */
+.input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: var(--color-surface-raised);
+  border: 1px solid var(--color-ink-200);
+  color: var(--color-ink-900);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  transition: border-color 0.15s;
+  outline: none;
+}
+.input::placeholder { color: var(--color-ink-300); }
+.input:focus {
+  border-color: var(--color-ink-900);
+  box-shadow: 0 0 0 1px var(--color-ink-900);
+}
+.input:disabled {
+  background-color: var(--color-surface-sunken);
+  cursor: not-allowed;
+}
+.input-error {
+  border-color: #f87171;
+}
+.input-error:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 1px #ef4444;
 }
 
-/* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 8px;
+.label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-ink-400);
+  margin-bottom: 0.5rem;
 }
 
-::-webkit-scrollbar-track {
-  background: #f1f5f9;
+/* ── Cards ── */
+.card {
+  background-color: var(--color-surface-raised);
+  border: 1px solid var(--color-ink-100);
+  padding: 1.5rem;
 }
 
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
+.card-hover {
+  background-color: var(--color-surface-raised);
+  border: 1px solid var(--color-ink-100);
+  padding: 1.5rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+  text-decoration: none;
+  display: block;
+}
+.card-hover:hover {
+  border-color: var(--color-ink-300);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+/* ── Status badges ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.625rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.025em;
 }
+.badge-submitted { background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; }
+.badge-reviewed  { background: #FFFBEB; color: #B45309; border: 1px solid #FDE68A; }
+.badge-approved  { background: #F0FDF4; color: #15803D; border: 1px solid #BBF7D0; }
+.badge-rejected  { background: #FEF2F2; color: #B91C1C; border: 1px solid #FECACA; }
+
+/* ── Page layout ── */
+.page-header {
+  border-bottom: 1px solid var(--color-ink-100);
+  padding-bottom: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.page-title {
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  font-weight: 600;
+  color: var(--color-ink-900);
+  line-height: 1.1;
+}
+
+.page-subtitle {
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  color: var(--color-ink-400);
+}
+
+/* ── Animations ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.animate-fade-up { animation: fadeUp 0.45s ease forwards; }
+.animate-fade-in { animation: fadeIn 0.35s ease forwards; }
+.animate-spin    { animation: spin 0.7s linear infinite; }
