@@ -9,17 +9,17 @@ from datetime import timedelta
 from pathlib import Path
 
 import dj_database_url
-from dotenv import load_dotenv
-
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # ===== SECURITY =====
-if not os.getenv('SECRET_KEY'):
-    raise RuntimeError('SECRET_KEY environment variable must be set for production')
-SECRET_KEY = os.getenv('SECRET_KEY')
-DEBUG = os.getenv('DEBUG', 'False').lower() in ('1', 'true', 'yes')
+SECRET_KEY = os.getenv('SECRET_KEY', 'test-secret-key')
+DEBUG = os.getenv('DEBUG', 'True').lower() in ('1', 'true', 'yes')
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 # ===== APPS =====

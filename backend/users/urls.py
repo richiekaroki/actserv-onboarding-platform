@@ -5,10 +5,10 @@ from . import views
 
 urlpatterns = [
     # Register a new client account
-    path('register/', views.register_client, name='register-client'),
+    path('register/', views.RegisterClientView.as_view(), name='register-client'),
 
     # Return current user's profile (requires JWT token)
-    path('me/', views.me, name='user-me'),
+    path('me/', views.MeView.as_view(), name='user-me'),
 ]
 
 # NOTE: Login is handled by rest_framework_simplejwt at /api/auth/login/

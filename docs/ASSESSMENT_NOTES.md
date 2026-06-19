@@ -15,6 +15,7 @@
 | Configure form fields       | ✅ Done | Field model + JSON schema          |
 | Clients view forms          | ✅ Done | GET `/api/forms/` (public)         |
 | Clients submit forms        | ✅ Done | POST `/api/submissions/`           |
+| Client registration         | ✅ Done | POST `/api/auth/register/`         |
 | Async email notifications   | ✅ Done | Celery tasks + Redis               |
 | File upload support         | ✅ Done | `FileUpload` model                 |
 | Schema versioning           | ✅ Done | `schema_version` field             |

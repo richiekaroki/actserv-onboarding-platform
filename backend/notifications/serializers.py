@@ -15,3 +15,7 @@ class NotificationSerializer(serializers.ModelSerializer):
             'id', 'user', 'type', 'title', 'message',
             'related_submission', 'created_at',
         )
+
+
+class MarkAllReadResponseSerializer(serializers.Serializer):
+    marked_read = serializers.IntegerField()

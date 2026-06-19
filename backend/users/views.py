@@ -10,7 +10,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from .serializers import UserSerializer
+from .serializers import UserSerializer, RegisterClientSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -26,61 +26,31 @@ class _RegisterSerializer:
     pass
 
 
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def register_client(request: Request) -> Response:
-    """
-    POST /api/auth/register/
-    Register a new client account.
-    Body: { email, password, first_name?, last_name? }
-    """
-    data: dict[str, Any] = request.data  # type: ignore[assignment]
+from rest_framework.decorators import throttle_classes
 
-    email: str = data.get('email', '').strip().lower()
-    password: str = data.get('password', '')
-    first_name: str = data.get('first_name', '')
-    last_name: str = data.get('last_name', '')
+from drf_spectacular.utils import extend_schema, OpenApiResponse
+from rest_framework.views import APIView
+from rest_framework.generics import RetrieveAPIView
 
-    # Validate required fields
-    errors: dict[str, str] = {}
-    if not email:
-        errors['email'] = 'Email is required.'
-    if not password:
-        errors['password'] = 'Password is required.'
-    else:
-        try:
-            # Leverage Django's built‑in validators (including common password list)
-            validate_password(password)
-        except ValidationError as ve:
-            errors['password'] = '; '.join(ve.messages)
+@extend_schema(request=RegisterClientSerializer, responses=UserSerializer)
+class RegisterClientView(APIView):
+    permission_classes = [AllowAny]
+    throttle_classes = []
 
-    if not errors and User.objects.filter(email=email).exists():
-        errors['email'] = 'A user with this email already exists.'
+    def post(self, request: Request) -> Response:
+        serializer = RegisterClientSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        logger.info('New client registered: %s', user.email)
+        return Response(
+            {'message': 'Registration successful.', 'user': UserSerializer(user).data},
+            status=status.HTTP_201_CREATED,
+        )
 
-    if errors:
-        return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+@extend_schema(responses=UserSerializer)
+class MeView(RetrieveAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = UserSerializer
 
-    user = User.objects.create_user(  # type: ignore[union-attr]
-        username=email,
-        email=email,
-        password=password,
-        first_name=first_name,
-        last_name=last_name,
-        role='client',
-    )
-    logger.info('New client registered: %s', user.email)
-
-    return Response(
-        {'message': 'Registration successful.', 'user': UserSerializer(user).data},
-        status=status.HTTP_201_CREATED,
-    )
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def me(request: Request) -> Response:
-    """
-    GET /api/auth/me/
-    Returns the profile of the currently authenticated user.
-    """
-    return Response(UserSerializer(request.user).data)
+    def get_object(self):
+        return self.request.user

@@ -1,0 +1,1389 @@
+openapi: 3.0.3
+info:
+  title: ActServ Onboarding API
+  version: 1.0.0
+  description: Dynamic form onboarding platform for financial services
+paths:
+  /api/auth/login/:
+    post:
+      operationId: auth_login_create
+      description: |-
+        Takes a set of user credentials and returns an access and refresh JSON web
+        token pair to prove the authentication of those credentials.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomTokenObtainPairRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CustomTokenObtainPairRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CustomTokenObtainPairRequest'
+        required: true
+      responses:
+        '200':
+          description: No response body
+  /api/auth/me/:
+    get:
+      operationId: auth_me_retrieve
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/auth/refresh/:
+    post:
+      operationId: auth_refresh_create
+      description: |-
+        Takes a refresh type JSON web token and returns an access type JSON web
+        token if the refresh token is valid.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+  /api/auth/register/:
+    post:
+      operationId: auth_register_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterClientRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RegisterClientRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RegisterClientRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/auth/verify/:
+    post:
+      operationId: auth_verify_create
+      description: |-
+        Takes a token and indicates if it is valid.  This view provides no
+        information about a token's fitness for a particular use.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenVerifyRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenVerifyRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenVerifyRequest'
+        required: true
+      responses:
+        '200':
+          description: No response body
+  /api/forms/:
+    get:
+      operationId: forms_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - forms
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedFormList'
+          description: ''
+    post:
+      operationId: forms_create
+      tags:
+      - forms
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FormRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FormRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FormRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Form'
+          description: ''
+  /api/forms/{form_slug}/fields/:
+    get:
+      operationId: forms_fields_list
+      parameters:
+      - in: path
+        name: form_slug
+        schema:
+          type: string
+        description: Slug of the parent Form
+        required: true
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - forms
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedFieldList'
+          description: ''
+    post:
+      operationId: forms_fields_create
+      parameters:
+      - in: path
+        name: form_slug
+        schema:
+          type: string
+        description: Slug of the parent Form
+        required: true
+      tags:
+      - forms
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FieldRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FieldRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FieldRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Field'
+          description: ''
+  /api/forms/{form_slug}/fields/{id}/:
+    get:
+      operationId: forms_fields_retrieve
+      parameters:
+      - in: path
+        name: form_slug
+        schema:
+          type: string
+        description: Slug of the parent Form
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - forms
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Field'
+          description: ''
+    put:
+      operationId: forms_fields_update
+      parameters:
+      - in: path
+        name: form_slug
+        schema:
+          type: string
+        description: Slug of the parent Form
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - forms
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FieldRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FieldRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FieldRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Field'
+          description: ''
+    patch:
+      operationId: forms_fields_partial_update
+      parameters:
+      - in: path
+        name: form_slug
+        schema:
+          type: string
+        description: Slug of the parent Form
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - forms
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedFieldRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedFieldRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedFieldRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Field'
+          description: ''
+    delete:
+      operationId: forms_fields_destroy
+      parameters:
+      - in: path
+        name: form_slug
+        schema:
+          type: string
+        description: Slug of the parent Form
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - forms
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/forms/{slug}/:
+    get:
+      operationId: forms_retrieve
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - forms
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Form'
+          description: ''
+    put:
+      operationId: forms_update
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - forms
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FormRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FormRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FormRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Form'
+          description: ''
+    patch:
+      operationId: forms_partial_update
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - forms
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedFormRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedFormRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedFormRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Form'
+          description: ''
+    delete:
+      operationId: forms_destroy
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - forms
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/notifications/:
+    get:
+      operationId: notifications_list
+      tags:
+      - notifications
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Notification'
+          description: ''
+  /api/notifications/{id}/:
+    get:
+      operationId: notifications_retrieve
+      description: |-
+        GET  /api/notifications/<uuid>/   — retrieve one notification
+        PATCH /api/notifications/<uuid>/  — mark as read ({ "is_read": true })
+
+        Only the owning user can access their own notifications.
+        DELETE is intentionally disabled — notifications are a log.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - notifications
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+          description: ''
+    patch:
+      operationId: notifications_partial_update
+      description: |-
+        GET  /api/notifications/<uuid>/   — retrieve one notification
+        PATCH /api/notifications/<uuid>/  — mark as read ({ "is_read": true })
+
+        Only the owning user can access their own notifications.
+        DELETE is intentionally disabled — notifications are a log.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedNotificationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedNotificationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedNotificationRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+          description: ''
+  /api/notifications/mark-all-read/:
+    post:
+      operationId: notifications_mark_all_read_create
+      tags:
+      - notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarkAllReadResponseRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MarkAllReadResponseRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MarkAllReadResponseRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarkAllReadResponse'
+          description: ''
+  /api/submissions/:
+    get:
+      operationId: submissions_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - submissions
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedSubmissionList'
+          description: ''
+    post:
+      operationId: submissions_create
+      tags:
+      - submissions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmissionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SubmissionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SubmissionRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Submission'
+          description: ''
+  /api/submissions/{id}/:
+    get:
+      operationId: submissions_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this submission.
+        required: true
+      tags:
+      - submissions
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Submission'
+          description: ''
+    put:
+      operationId: submissions_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this submission.
+        required: true
+      tags:
+      - submissions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmissionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SubmissionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SubmissionRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Submission'
+          description: ''
+    patch:
+      operationId: submissions_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this submission.
+        required: true
+      tags:
+      - submissions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedSubmissionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedSubmissionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedSubmissionRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Submission'
+          description: ''
+    delete:
+      operationId: submissions_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this submission.
+        required: true
+      tags:
+      - submissions
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/submissions/{id}/status/:
+    patch:
+      operationId: submissions_status_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this submission.
+        required: true
+      tags:
+      - submissions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedSubmissionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedSubmissionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedSubmissionRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Submission'
+          description: ''
+  /api/submissions/{id}/upload/:
+    post:
+      operationId: submissions_upload_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this submission.
+        required: true
+      tags:
+      - submissions
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SubmissionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SubmissionRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Submission'
+          description: ''
+components:
+  schemas:
+    CustomTokenObtainPairRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          writeOnly: true
+          minLength: 1
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - password
+      - username
+    Field:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        key:
+          type: string
+          maxLength: 150
+        label:
+          type: string
+          maxLength: 250
+        field_type:
+          $ref: '#/components/schemas/FieldTypeEnum'
+        options:
+          nullable: true
+        required:
+          type: boolean
+        validation:
+          nullable: true
+        order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        placeholder:
+          type: string
+          maxLength: 255
+        help_text:
+          type: string
+          maxLength: 500
+        form:
+          type: string
+          format: uuid
+      required:
+      - field_type
+      - form
+      - id
+      - key
+      - label
+    FieldRequest:
+      type: object
+      properties:
+        key:
+          type: string
+          minLength: 1
+          maxLength: 150
+        label:
+          type: string
+          minLength: 1
+          maxLength: 250
+        field_type:
+          $ref: '#/components/schemas/FieldTypeEnum'
+        options:
+          nullable: true
+        required:
+          type: boolean
+        validation:
+          nullable: true
+        order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        placeholder:
+          type: string
+          maxLength: 255
+        help_text:
+          type: string
+          maxLength: 500
+        form:
+          type: string
+          format: uuid
+      required:
+      - field_type
+      - form
+      - key
+      - label
+    FieldTypeEnum:
+      enum:
+      - text
+      - number
+      - date
+      - dropdown
+      - checkbox
+      - file
+      - email
+      - textarea
+      type: string
+      description: |-
+        * `text` - Text
+        * `number` - Number
+        * `date` - Date
+        * `dropdown` - Dropdown
+        * `checkbox` - Checkbox
+        * `file` - File Upload
+        * `email` - Email
+        * `textarea` - Text Area
+    FileUpload:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        field_key:
+          type: string
+          maxLength: 150
+        file:
+          type: string
+          format: uri
+        uploaded_at:
+          type: string
+          format: date-time
+          readOnly: true
+        original_filename:
+          type: string
+          readOnly: true
+        content_type:
+          type: string
+          readOnly: true
+        file_size:
+          type: integer
+          readOnly: true
+          nullable: true
+        meta:
+          nullable: true
+        submission:
+          type: string
+          format: uuid
+      required:
+      - content_type
+      - field_key
+      - file
+      - file_size
+      - id
+      - original_filename
+      - submission
+      - uploaded_at
+    FileUploadRequest:
+      type: object
+      properties:
+        field_key:
+          type: string
+          minLength: 1
+          maxLength: 150
+        file:
+          type: string
+          format: binary
+        meta:
+          nullable: true
+        submission:
+          type: string
+          format: uuid
+      required:
+      - field_key
+      - file
+      - submission
+    Form:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/Field'
+          readOnly: true
+        submission_count:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 200
+        slug:
+          type: string
+          maxLength: 200
+          pattern: ^[-a-zA-Z0-9_]+$
+        description:
+          type: string
+        schema: {}
+        schema_version:
+          type: integer
+          readOnly: true
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - fields
+      - id
+      - name
+      - schema
+      - schema_version
+      - slug
+      - submission_count
+      - updated_at
+    FormRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 200
+          pattern: ^[-a-zA-Z0-9_]+$
+        description:
+          type: string
+        schema: {}
+        is_active:
+          type: boolean
+      required:
+      - name
+      - schema
+      - slug
+    MarkAllReadResponse:
+      type: object
+      properties:
+        marked_read:
+          type: integer
+      required:
+      - marked_read
+    MarkAllReadResponseRequest:
+      type: object
+      properties:
+        marked_read:
+          type: integer
+      required:
+      - marked_read
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        user:
+          type: string
+          format: uuid
+          readOnly: true
+        type:
+          allOf:
+          - $ref: '#/components/schemas/TypeEnum'
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        message:
+          type: string
+          readOnly: true
+        related_submission:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        is_read:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - message
+      - related_submission
+      - title
+      - type
+      - user
+    PaginatedFieldList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Field'
+    PaginatedFormList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Form'
+    PaginatedSubmissionList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Submission'
+    PatchedFieldRequest:
+      type: object
+      properties:
+        key:
+          type: string
+          minLength: 1
+          maxLength: 150
+        label:
+          type: string
+          minLength: 1
+          maxLength: 250
+        field_type:
+          $ref: '#/components/schemas/FieldTypeEnum'
+        options:
+          nullable: true
+        required:
+          type: boolean
+        validation:
+          nullable: true
+        order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        placeholder:
+          type: string
+          maxLength: 255
+        help_text:
+          type: string
+          maxLength: 500
+        form:
+          type: string
+          format: uuid
+    PatchedFormRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 200
+          pattern: ^[-a-zA-Z0-9_]+$
+        description:
+          type: string
+        schema: {}
+        is_active:
+          type: boolean
+    PatchedNotificationRequest:
+      type: object
+      properties:
+        is_read:
+          type: boolean
+    PatchedSubmissionRequest:
+      type: object
+      properties:
+        client_identifier:
+          type: string
+          nullable: true
+          maxLength: 200
+        responses: {}
+        form:
+          type: string
+          format: uuid
+    RegisterClientRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+        first_name:
+          type: string
+        last_name:
+          type: string
+      required:
+      - email
+      - password
+    RoleEnum:
+      enum:
+      - admin
+      - client
+      type: string
+      description: |-
+        * `admin` - Admin
+        * `client` - Client
+    StatusEnum:
+      enum:
+      - submitted
+      - reviewed
+      - approved
+      - rejected
+      type: string
+      description: |-
+        * `submitted` - Submitted
+        * `reviewed` - Reviewed
+        * `approved` - Approved
+        * `rejected` - Rejected
+    Submission:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/FileUpload'
+          readOnly: true
+        client_identifier:
+          type: string
+          nullable: true
+          maxLength: 200
+        schema_version:
+          type: integer
+          readOnly: true
+        responses: {}
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusEnum'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        form:
+          type: string
+          format: uuid
+        submitted_by:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+      required:
+      - created_at
+      - files
+      - form
+      - id
+      - responses
+      - schema_version
+      - status
+      - submitted_by
+      - updated_at
+    SubmissionRequest:
+      type: object
+      properties:
+        client_identifier:
+          type: string
+          nullable: true
+          maxLength: 200
+        responses: {}
+        form:
+          type: string
+          format: uuid
+      required:
+      - form
+      - responses
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+      required:
+      - access
+      - refresh
+    TokenRefreshRequest:
+      type: object
+      properties:
+        refresh:
+          type: string
+          minLength: 1
+      required:
+      - refresh
+    TokenVerifyRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - token
+    TypeEnum:
+      enum:
+      - submission
+      - approval
+      - rejection
+      - system
+      type: string
+      description: |-
+        * `submission` - New Submission
+        * `approval` - Approval Required
+        * `rejection` - Submission Rejected
+        * `system` - System Notification
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+          title: Email address
+        first_name:
+          type: string
+          readOnly: true
+        last_name:
+          type: string
+          readOnly: true
+        role:
+          allOf:
+          - $ref: '#/components/schemas/RoleEnum'
+          readOnly: true
+        phone:
+          type: string
+          readOnly: true
+        department:
+          type: string
+          readOnly: true
+        employee_id:
+          type: string
+          readOnly: true
+          nullable: true
+        is_staff:
+          type: boolean
+          readOnly: true
+          title: Staff status
+          description: Designates whether the user can log into this admin site.
+      required:
+      - department
+      - email
+      - employee_id
+      - first_name
+      - id
+      - is_staff
+      - last_name
+      - phone
+      - role
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

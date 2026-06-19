@@ -6,12 +6,14 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
 from .models import Notification
-from .serializers import NotificationSerializer
+from .serializers import NotificationSerializer, MarkAllReadResponseSerializer
 
 logger = logging.getLogger(__name__)
 
 
 class NotificationListView(generics.ListAPIView):
+    # Return plain list without pagination for API consistency
+    pagination_class = None
     """
     GET /api/notifications/
     Returns all notifications for the authenticated user,
@@ -47,18 +49,19 @@ class NotificationDetailView(generics.RetrieveUpdateAPIView):
         return Notification.objects.filter(user=self.request.user)
 
 
-@api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])
-def mark_all_read(request):
-    """
-    POST /api/notifications/mark-all-read/
-    Marks every unread notification for the current user as read.
-    Returns the count of records updated.
-    """
-    updated = (
-        Notification.objects
-        .filter(user=request.user, is_read=False)
-        .update(is_read=True)
-    )
-    logger.info("User %s marked %d notifications as read", request.user, updated)
-    return Response({"marked_read": updated}, status=status.HTTP_200_OK)
+from drf_spectacular.utils import extend_schema
+from rest_framework.views import APIView
+
+@extend_schema(responses=MarkAllReadResponseSerializer)
+class MarkAllReadView(APIView):
+    serializer_class = MarkAllReadResponseSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        updated = (
+            Notification.objects
+            .filter(user=request.user, is_read=False)
+            .update(is_read=True)
+        )
+        logger.info("User %s marked %d notifications as read", request.user, updated)
+        return Response({"marked_read": updated}, status=status.HTTP_200_OK)

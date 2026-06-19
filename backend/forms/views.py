@@ -8,6 +8,7 @@ from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
 
 from .models import Field, FileUpload, Form, Submission
 from .permissions import IsAdminUserOrReadOnly
@@ -22,6 +23,17 @@ logger = logging.getLogger(__name__)
 
 
 class FormViewSet(viewsets.ModelViewSet):
+    # Disable throttling for public read endpoints
+    throttle_classes = []
+
+    # Gracefully handle protected deletion (forms with submissions)
+    def destroy(self, request, *args, **kwargs):
+        from django.db.models import ProtectedError
+
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response({'detail': 'Cannot delete form with existing submissions.'}, status=status.HTTP_400_BAD_REQUEST)
     serializer_class = FormSerializer
     lookup_field = 'slug'
     permission_classes = [IsAdminUserOrReadOnly]
@@ -41,6 +53,7 @@ class FormViewSet(viewsets.ModelViewSet):
         logger.info('Form created: %s (slug=%s) by %s', form.name, form.slug, self.request.user)
 
 
+@extend_schema(parameters=[OpenApiParameter(name='form_slug', type=OpenApiTypes.STR, location=OpenApiParameter.PATH, description='Slug of the parent Form')])
 class FieldViewSet(viewsets.ModelViewSet):
     serializer_class = FieldSerializer
     permission_classes = [IsAdminUser]

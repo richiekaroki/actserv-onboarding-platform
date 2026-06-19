@@ -24,7 +24,7 @@ class FormSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ('id', 'created_at', 'updated_at', 'schema_version')
 
-    def get_submission_count(self, obj):
+    def get_submission_count(self, obj: Form) -> int:
         return obj.submissions.count()
 
 
