@@ -23,13 +23,13 @@ API Documentation: http://localhost:8000/api/schema/swagger-ui/
 Admin Panel: http://localhost:8000/admin/
 
 📚 Documentation
-Document	Purpose
-📖 API Reference	Full list of backend endpoints
-Document	Purpose
-📋 Assessment Notes	Requirements mapping, demo script, status
-⚙️ Setup Guide	Local development & Docker instructions
-🏗️ Design Decisions	Architecture choices & reasoning
-🧪 Testing	Test suite & coverage reports
+Document Purpose
+📖 API Reference Full list of backend endpoints
+Document Purpose
+📋 Assessment Notes Requirements mapping, demo script, status
+⚙️ Setup Guide Local development & Docker instructions
+🏗️ Design Decisions Architecture choices & reasoning
+🧪 Testing Test suite & coverage reports
 🎯 Key Features
 ✅ Dynamic Forms - Admin-configurable forms with JSON schema
 
