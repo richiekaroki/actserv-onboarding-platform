@@ -2,7 +2,6 @@
 /* Tailwind v4: uses @import instead of @tailwind directives */
 @import "tailwindcss";
 
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=DM+Mono:wght@400;500&display=swap');
 
 /* ── Design tokens ── */
 :root {

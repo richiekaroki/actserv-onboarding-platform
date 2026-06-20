@@ -1,11 +1,13 @@
 //frontend/src/app/submission-success/page.tsx
 "use client";
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 
-export default function SubmissionSuccessPage() {
+function SubmissionSuccessPageInner() {
   const searchParams = useSearchParams();
   const formSlug = searchParams.get("form");
   const [countdown, setCountdown] = useState(10);
@@ -20,7 +22,6 @@ export default function SubmissionSuccessPage() {
         return prev - 1;
       });
     }, 1000);
-
     return () => clearInterval(timer);
   }, []);
 
@@ -47,9 +48,7 @@ export default function SubmissionSuccessPage() {
         </div>
 
         {/* Success Message */}
-        <h1 className="text-3xl font-bold text-gray-800 mb-3">
-          Submission Successful!
-        </h1>
+        <h1 className="text-3xl font-bold text-gray-800 mb-3">Submission Successful!</h1>
         <p className="text-gray-600 mb-6">
           Your form has been submitted successfully. We've received your
           information and will process it shortly.
@@ -117,11 +116,18 @@ export default function SubmissionSuccessPage() {
         {/* Support Info */}
         <div className="mt-6 pt-6 border-t border-gray-200">
           <p className="text-xs text-gray-500">
-            Need help? Contact support or check your submission status in your
-            dashboard.
+            Need help? Contact support or check your submission status in your dashboard.
           </p>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SubmissionSuccessPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <SubmissionSuccessPageInner />
+    </Suspense>
   );
 }

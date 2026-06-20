@@ -1,11 +1,14 @@
 // frontend/src/app/admin/forms/edit/page.tsx
 // Accessed as /admin/forms/edit?slug=form-slug
 "use client";
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
 
 import { getForm, updateForm, createField, deleteField } from "@/lib/api";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import Navbar from "@/components/Navbar";
+import { Suspense } from "react";
 
 interface FieldRow {
   id: string;
@@ -30,7 +33,7 @@ interface FormData {
 
 const FIELD_TYPES = ["text","email","number","date","dropdown","checkbox","file","textarea"];
 
-export default function EditFormPage() {
+function EditFormPageInner() {
   const searchParams = useSearchParams();
   const slug         = searchParams.get("slug") ?? "";
   const router       = useRouter();
@@ -261,5 +264,13 @@ export default function EditFormPage() {
 
       </div>
     </div>
+  );
+}
+
+export default function EditFormPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <EditFormPageInner />
+    </Suspense>
   );
 }

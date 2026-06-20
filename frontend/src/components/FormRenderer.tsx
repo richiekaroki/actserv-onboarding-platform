@@ -143,7 +143,7 @@ function FieldInput({ field, register, errors, watchedValues }: FieldInputProps)
       ) && (
         <input
           type={field.field_type}
-          placeholder={field.placeholder ?? `Enter ${field.label.toLowerCase()}`}
+          placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
           {...register(field.key, { required: isRequired ? requiredMsg : false })}
           className={baseClass}
         />
@@ -153,7 +153,7 @@ function FieldInput({ field, register, errors, watchedValues }: FieldInputProps)
       {field.field_type === "textarea" && (
         <textarea
           rows={4}
-          placeholder={field.placeholder ?? `Enter ${field.label.toLowerCase()}`}
+          placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
           {...register(field.key, { required: isRequired ? requiredMsg : false })}
           className={baseClass + " resize-none"}
         />
@@ -199,7 +199,7 @@ function FieldInput({ field, register, errors, watchedValues }: FieldInputProps)
             multiple
             accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
             {...register(field.key, {
-              required: isRequired ? requiredMsg : false,
+              required: false,
               validate: (files: unknown) => {
                 const fl = files as FileList;
                 if (!fl || fl.length === 0) return isRequired ? requiredMsg : true;
