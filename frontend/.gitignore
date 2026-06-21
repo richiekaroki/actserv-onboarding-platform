@@ -21,3 +21,5 @@ jest-*
 # OS junk
 .DS_Store
 Thumbs.db
+.vercel
+.env*
