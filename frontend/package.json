@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "vercel:link": "vercel link",
-    "deploy": "vercel --prod",
+    "deploy": "npx vercel@latest --prod",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -35,6 +35,6 @@
     "jest-environment-jsdom": "^29.7.0",
     "tailwindcss": "^4.1.13",
     "typescript": "^5",
-    "vercel": "^50.41.0"
+    "vercel": "^54.14.5"
   }
 }
