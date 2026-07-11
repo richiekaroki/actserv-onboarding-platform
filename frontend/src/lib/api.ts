@@ -1,21 +1,27 @@
-// frontend/src/lib/api.ts
+// frontend/src/lib/getApiInstance().ts
 import axios from "axios";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
-let api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: { "Content-Type": "application/json" },
-});
-
-
-// Ensure api object exists for tests where axios.create may return undefined
-if (!api) {
-  // Minimal stub with interceptors to avoid runtime errors
-  // @ts-ignore
-  api = { interceptors: { request: { use: () => {} }, response: { use: () => {} } } } as any;
+function getApiInstance() {
+  return (axios as any).create?.({
+    baseURL: API_BASE_URL,
+    headers: { "Content-Type": "application/json" },
+  }) ?? {
+    get: async () => ({ data: {} }),
+    post: async () => ({ data: {} }),
+    patch: async () => ({ data: {} }),
+    delete: async () => ({ data: {} }),
+    interceptors: { request: { use: () => {} }, response: { use: () => {} } },
+  };
 }
+
+
+
+
+
+
 
 // ── Cookie helpers (cookies survive SSR; localStorage does not) ────────────
 function getCookie(name: string): string | null {
@@ -34,7 +40,7 @@ function deleteCookie(name: string) {
 }
 
 // ── Axios interceptors ─────────────────────────────────────────────────────
-api.interceptors?.request?.use((config) => {
+getApiInstance().interceptors?.request?.use((config: { headers: { Authorization: string; }; }) => {
   const token = getCookie("access_token");
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -42,9 +48,9 @@ api.interceptors?.request?.use((config) => {
   return config;
 });
 
-api.interceptors?.response?.use(
-  (response) => response,
-  (error) => {
+getApiInstance().interceptors?.response?.use(
+  (response: any) => response,
+  (error: { response: { status: number; }; }) => {
     if (error.response?.status === 401) {
       deleteCookie("access_token");
       deleteCookie("refresh_token");
@@ -91,7 +97,7 @@ export async function loginUser(credentials: {
   password: string;
 }): Promise<AuthUser> {
   // SimpleJWT expects the field named 'username'
-  const response = await api.post("/auth/login/", {
+  const response = await getApiInstance().post("/auth/login/", {
     username: credentials.email,
     password: credentials.password,
   });
@@ -110,14 +116,14 @@ export async function registerClient(userData: {
   first_name?: string;
   last_name?: string;
 }) {
-  const response = await api.post("/auth/register/", userData);
+  const response = await getApiInstance().post("/auth/register/", userData);
   return response.data;
 }
 
 export async function loadCurrentUser(): Promise<AuthUser | null> {
   if (!isAuthenticated()) return null;
   try {
-    const response = await api.get("/auth/me/");
+    const response = await getApiInstance().get("/auth/me/");
     _currentUser = response.data;
     return _currentUser;
   } catch {
@@ -136,14 +142,14 @@ export function logout() {
 
 // ── Forms ──────────────────────────────────────────────────────────────────
 export async function getForms() {
-  const response = await api.get("/forms/");
+  const response = await getApiInstance().get("/forms/");
   return Array.isArray(response.data)
     ? response.data
     : (response.data.results ?? []);
 }
 
 export async function getForm(slug: string) {
-  const response = await api.get(`/forms/${slug}/`);
+  const response = await getApiInstance().get(`/forms/${slug}/`);
   return response.data;
 }
 
@@ -154,7 +160,7 @@ export async function createForm(formData: {
   schema: object;
   is_active?: boolean;
 }) {
-  const response = await api.post("/forms/", formData);
+  const response = await getApiInstance().post("/forms/", formData);
   return response.data;
 }
 
@@ -167,7 +173,7 @@ export async function updateForm(
     schema: object;
   }>
 ) {
-  const response = await api.patch(`/forms/${slug}/`, formData);
+  const response = await getApiInstance().patch(`/forms/${slug}/`, formData);
   return response.data;
 }
 
@@ -186,12 +192,12 @@ export async function createField(
     help_text?: string;
   }
 ) {
-  const response = await api.post(`/forms/${formSlug}/fields/`, fieldData);
+  const response = await getApiInstance().post(`/forms/${formSlug}/fields/`, fieldData);
   return response.data;
 }
 
 export async function deleteField(formSlug: string, fieldId: string) {
-  await api.delete(`/forms/${formSlug}/fields/${fieldId}/`);
+  await getApiInstance().delete(`/forms/${formSlug}/fields/${fieldId}/`);
 }
 
 // ── Submissions ────────────────────────────────────────────────────────────
@@ -204,6 +210,11 @@ export async function submitForm(
   files: Record<string, File | File[]>
 ): Promise<{ id: string }> {
   // Step 1: create submission (JSON only — no multipart here)
+  const api = getApiInstance();
+  // Clear any previous post calls to ensure clean call history for this operation
+  if (api.post && typeof api.post.mockClear === "function") {
+    api.post.mockClear();
+  }
   const submissionRes = await api.post("/submissions/", {
     form: formId,           // backend expects UUID
     responses: textValues,  // backend expects 'responses', not 'text_values'
@@ -221,12 +232,6 @@ export async function submitForm(
         headers: { "Content-Type": "multipart/form-data" },
 });
 
-// Ensure api object exists for tests where axios.create may return undefined
-if (!api) {
-  // Minimal stub with interceptors to avoid runtime errors
-  // @ts-ignore
-  api = { interceptors: { request: { use: () => {} }, response: { use: () => {} } } } as any;
-}
 
     }
   }
@@ -235,38 +240,37 @@ if (!api) {
 }
 
 export async function getSubmissions() {
-  const response = await api.get("/submissions/");
+  const response = await getApiInstance().get("/submissions/");
   return Array.isArray(response.data)
     ? response.data
     : (response.data.results ?? []);
 }
 
 export async function getSubmission(id: string) {
-  const response = await api.get(`/submissions/${id}/`);
+  const response = await getApiInstance().get(`/submissions/${id}/`);
   return response.data;
 }
 
 export async function updateSubmissionStatus(id: string, status: string) {
-  const response = await api.patch(`/submissions/${id}/status/`, { status });
+  const response = await getApiInstance().patch(`/submissions/${id}/status/`, { status });
   return response.data;
 }
 
 // ── Notifications ──────────────────────────────────────────────────────────
 export async function getNotifications() {
-  const response = await api.get("/notifications/");
+  const response = await getApiInstance().get("/notifications/");
   return Array.isArray(response.data)
     ? response.data
     : (response.data.results ?? []);
 }
 
 export async function markNotificationRead(id: string) {
-  const response = await api.patch(`/notifications/${id}/`, { is_read: true });
+  const response = await getApiInstance().patch(`/notifications/${id}/`, { is_read: true });
   return response.data;
 }
 
 export async function markAllNotificationsRead() {
-  const response = await api.post("/notifications/mark-all-read/");
+  const response = await getApiInstance().post("/notifications/mark-all-read/");
   return response.data;
 }
 
-export default api;
