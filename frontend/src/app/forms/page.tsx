@@ -27,7 +27,7 @@ export default function FormsList() {
 
     getForms()
       .then((data) => {
-        const allForms = (data.results ?? []) as unknown as Form[];
+        const allForms = data as unknown as Form[];
         setForms(allForms.filter((f) => f.is_active));
       })
       .catch(() => setNetworkError(true))
@@ -36,7 +36,7 @@ export default function FormsList() {
 
   return (
     <div className="min-h-screen py-12 px-4" style={{ background: "var(--color-surface)" }}>
-      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-[var(--color-surface)] focus:px-4 focus:py-2 focus:shadow-lg focus:outline-none" style={{ color: "var(--color-ink-900)" }}>
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-(--color-surface) focus:px-4 focus:py-2 focus:shadow-lg focus:outline-none" style={{ color: "var(--color-ink-900)" }}>
         Skip to main content
       </a>
 

@@ -61,14 +61,14 @@ export default function AdminDashboard() {
 
   const fetchAll = async () => {
     try {
-      const [formsRes, subsRes, notifsData] = await Promise.all([
-        getForms(1),
-        getSubmissions(1),
-        getNotifications(),
-      ]);
-      setForms(formsRes.results as unknown as Form[]);
-      setSubmissions(subsRes.results as unknown as Submission[]);
-      setTotalSubs(subsRes.count);
+const [formsRes, subsRes, notifsData] = await Promise.all([
+      getForms(1),
+      getSubmissions(1),
+      getNotifications(),
+    ]);
+    setForms(formsRes as unknown as Form[]);
+    setSubmissions(subsRes as unknown as Submission[]);
+    setTotalSubs(subsRes.length);
       setUnread(notifsData.filter((n: { is_read: boolean }) => !n.is_read).length);
     } catch (err: unknown) {
       setFetchError(true);
@@ -82,8 +82,8 @@ export default function AdminDashboard() {
   const fetchSubmissionsPage = async (page: number) => {
     try {
       const subsRes = await getSubmissions(page);
-      setSubmissions(subsRes.results as unknown as Submission[]);
-      setTotalSubs(subsRes.count);
+      setSubmissions(subsRes as unknown as Submission[]);
+      setTotalSubs(subsRes.length);
     } catch {
       // Keep existing data on error
     }
@@ -215,7 +215,7 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-[var(--color-surface)] focus:px-4 focus:py-2 focus:shadow-lg focus:outline-none" style={{ color: "var(--color-ink-900)" }}>
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-(--color-surface) focus:px-4 focus:py-2 focus:shadow-lg focus:outline-none" style={{ color: "var(--color-ink-900)" }}>
         Skip to main content
       </a>
 

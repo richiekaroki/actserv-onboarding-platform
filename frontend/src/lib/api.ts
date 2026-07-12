@@ -127,7 +127,7 @@ export function extractErrorMessage(error: unknown): string {
   }
 
   // DRF error response shapes
-  const data = err.response?.data;
+  const data = err.response?.data as Record<string, unknown>;
   if (data && typeof data === "object") {
     // { detail: "..." }
     if ("detail" in data && typeof data.detail === "string") {
@@ -139,8 +139,9 @@ export function extractErrorMessage(error: unknown): string {
     }
     // { field: ["error1", "error2"] } — take first error
     const firstKey = Object.keys(data)[0];
-    if (firstKey && Array.isArray(data[firstKey])) {
-      return `${firstKey}: ${data[firstKey][0]}`;
+    const firstVal = data[firstKey];
+    if (firstKey && Array.isArray(firstVal)) {
+      return `${firstKey}: ${firstVal[0]}`;
     }
   }
 
@@ -338,7 +339,7 @@ export async function submitForm(
   return submissionRes.data;
 }
 
-export async function getSubmissions(page = 1): Promise<PaginatedResponse<Record<string, unknown>>> {
+export async function getSubmissions(page = 1): Promise<any[]> {
   const response = await getApiInstance().get(`/submissions/?page=${page}`);
   const data = response.data;
   if (Array.isArray(data)) return data;
