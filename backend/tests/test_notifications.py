@@ -8,7 +8,6 @@ from forms.models import Form, Submission
 from notifications.models import Notification
 from notifications.tasks import (
     format_responses,
-    notify_admin_bulk_submissions,
     notify_admin_new_submission,
 )
 from users.models import CustomUser
@@ -83,27 +82,6 @@ class TestNotifyAdminNewSubmission:
         sub = Submission.objects.create(form=form, schema_version=1, responses={})
         notify_admin_new_submission(str(sub.id))
         assert Notification.objects.filter(related_submission=sub).count() == 3
-
-
-@pytest.mark.django_db
-class TestNotifyAdminBulkSubmissions:
-
-    @patch('notifications.tasks.send_mail')
-    def test_sends_bulk_alert_email(self, mock_mail, basic_form):
-        notify_admin_bulk_submissions(str(basic_form.id), 10)
-        mock_mail.assert_called_once()
-        subject = mock_mail.call_args[1]['subject']
-        assert 'Basic Form' in subject
-        assert 'Bulk' in subject
-
-    @patch('notifications.tasks.send_mail')
-    def test_email_body_mentions_count(self, mock_mail, basic_form):
-        notify_admin_bulk_submissions(str(basic_form.id), 10)
-        assert '10' in mock_mail.call_args[1]['message']
-
-    def test_nonexistent_form_returns_not_found(self):
-        result = notify_admin_bulk_submissions(str(uuid.uuid4()), 5)
-        assert 'not found' in result.lower()
 
 
 @pytest.mark.django_db

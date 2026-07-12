@@ -32,6 +32,7 @@ dependencies = [
     # HTTP / middleware
     "django-cors-headers==4.9.0",
     "whitenoise==6.11.0",
+    "gunicorn==23.0.0",
 
     # Config
     "python-dotenv==1.1.1",
@@ -90,11 +91,19 @@ python_files = ["tests.py", "test_*.py", "*_tests.py"]
 addopts = [
     "--cov=.",
     "--cov-report=html",
-    "--cov-omit=*/migrations/*,*/venv/*,*/.venv/*,manage.py,*/settings*",
     "-m", "not integration",
 ]
 markers = [
     "integration: requires live Redis + Celery worker (deselected by default)",
+]
+
+[tool.coverage.run]
+omit = [
+    "*/migrations/*",
+    "*/venv/*",
+    "*/.venv/*",
+    "manage.py",
+    "*/settings*",
 ]
 
 # ---------------------------------------------------------------------------

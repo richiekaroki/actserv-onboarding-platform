@@ -72,32 +72,17 @@ def notify_admin_new_submission(self, submission_id: str) -> str:
 
 
 @shared_task
-def notify_admin_bulk_submissions(form_id: str, count: int) -> str:
-    try:
-        from forms.models import Form
-        try:
-            form = Form.objects.get(id=form_id)
-        except Form.DoesNotExist:
-            return f"Form {form_id} not found"
+def cleanup_old_notifications(days_to_keep: int = 90) -> str:
+    """Delete read notifications older than the specified number of days."""
+    from datetime import timedelta
+    from .models import Notification
 
-        subject = f"Bulk Submissions Alert - {form.name}"
-        message = (
-            f"Alert: {count} submissions received for {form.name} in a short time period.\n\n"
-            f"Please review for potential issues or high-volume processing needs."
-        )
-        admin_emails = getattr(settings, 'ADMIN_NOTIFICATION_EMAILS', ['admin@actserv.local'])
-        send_mail(
-            subject=subject,
-            message=message,
-            from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'no-reply@actserv.local'),
-            recipient_list=admin_emails,
-            fail_silently=True,
-        )
-        return f"Bulk notification sent for form {form_id} ({count} submissions)"
-
-    except Exception:
-        logger.exception("Failed to send bulk notification for form %s", form_id)
-        return "Failed"
+    cutoff = now() - timedelta(days=days_to_keep)
+    deleted_count, _ = Notification.objects.filter(
+        is_read=True, created_at__lt=cutoff
+    ).delete()
+    logger.info("Cleaned up %d old read notifications (older than %d days)", deleted_count, days_to_keep)
+    return f"Deleted {deleted_count} notifications"
 
 
 def format_responses(responses: dict | None) -> str:
@@ -107,9 +92,9 @@ def format_responses(responses: dict | None) -> str:
     return "\n".join(f"  {key}: {value}" for key, value in responses.items())
 
 
-@shared_task(bind=False, max_retries=3)
-def send_admin_email(subject: str, message: str, recipient_list: list[str]):
-    """Send email to admins via Celery. Retries on failure."""
+@shared_task(bind=True, max_retries=3)
+def send_admin_email(self, subject: str, message: str, recipient_list: list[str]):
+    """Send email to admins via Celery. Retries on failure with exponential backoff."""
     try:
         send_mail(
             subject=subject,
@@ -122,4 +107,4 @@ def send_admin_email(subject: str, message: str, recipient_list: list[str]):
         return "email_sent"
     except Exception as exc:
         logger.exception("Failed to send admin email")
-        raise exc
+        raise self.retry(exc=exc, countdown=60)

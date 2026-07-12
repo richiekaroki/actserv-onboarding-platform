@@ -34,10 +34,13 @@ function mockCookie(value = "") {
   });
 }
 
+beforeEach(() => {
+  jest.clearAllMocks();
+});
+
 describe("loginUser", () => {
   beforeEach(() => {
     mockCookie("");
-    jest.clearAllMocks();
   });
 
   it("sends username (not email) to the login endpoint", async () => {

@@ -1,69 +1,165 @@
-// frontend/src/lib/getApiInstance().ts
+// frontend/src/lib/api.ts
 import axios from "axios";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
-
-function getApiInstance() {
-  return (axios as any).create?.({
-    baseURL: API_BASE_URL,
-    headers: { "Content-Type": "application/json" },
-  }) ?? {
-    get: async () => ({ data: {} }),
-    post: async () => ({ data: {} }),
-    patch: async () => ({ data: {} }),
-    delete: async () => ({ data: {} }),
-    interceptors: { request: { use: () => {} }, response: { use: () => {} } },
-  };
-}
-
-
 
 
 
 
 
 // ── Cookie helpers (cookies survive SSR; localStorage does not) ────────────
+const COOKIE_REGEX_CACHE = new Map<string, RegExp>();
+function getCookiePattern(name: string): RegExp {
+  let re = COOKIE_REGEX_CACHE.get(name);
+  if (!re) {
+    re = new RegExp(`(?:^|; )${name}=([^;]*)`);
+    COOKIE_REGEX_CACHE.set(name, re);
+  }
+  return re;
+}
 function getCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
-  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+  const match = document.cookie.match(getCookiePattern(name));
   return match ? decodeURIComponent(match[1]) : null;
 }
 
 function setCookie(name: string, value: string, days = 1) {
   const expires = new Date(Date.now() + days * 864e5).toUTCString();
-  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Strict`;
+  const secure = typeof window !== "undefined" && window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Strict${secure}`;
 }
 
 function deleteCookie(name: string) {
   document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
 }
 
-// ── Axios interceptors ─────────────────────────────────────────────────────
-getApiInstance().interceptors?.request?.use((config: { headers: { Authorization: string; }; }) => {
-  const token = getCookie("access_token");
-  if (token && config.headers) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+// ── Token refresh ──────────────────────────────────────────────────────────
+let _isRefreshing = false;
+let _refreshPromise: Promise<string> | null = null;
 
-getApiInstance().interceptors?.response?.use(
-  (response: any) => response,
-  (error: { response: { status: number; }; }) => {
-    if (error.response?.status === 401) {
-      deleteCookie("access_token");
-      deleteCookie("refresh_token");
-      if (
-        typeof window !== "undefined" &&
-        !window.location.pathname.includes("/login")
-      ) {
-        window.location.href = "/login";
-      }
+async function refreshAccessToken(): Promise<string> {
+  const refreshToken = getCookie("refresh_token");
+  if (!refreshToken) throw new Error("No refresh token");
+
+  // Deduplicate concurrent refresh attempts
+  if (_isRefreshing && _refreshPromise) return _refreshPromise;
+
+  _isRefreshing = true;
+  _refreshPromise = (async () => {
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/auth/refresh/`,
+        { refresh: refreshToken },
+        { headers: { "Content-Type": "application/json" } }
+      );
+      const { access, refresh } = response.data;
+      setCookie("access_token", access, 1);
+      if (refresh) setCookie("refresh_token", refresh, 7);
+      return access;
+    } finally {
+      _isRefreshing = false;
+      _refreshPromise = null;
     }
-    return Promise.reject(error);
+  })();
+
+  return _refreshPromise;
+}
+
+// ── Axios interceptors ─────────────────────────────────────────────────────
+function setupInterceptors(instance: any) {
+  if (instance?.interceptors) {
+    instance.interceptors.request.use((config: { headers: { Authorization: string; }; }) => {
+      const token = getCookie("access_token");
+      if (token && config.headers) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      return config;
+    });
+
+    instance.interceptors.response.use(
+      (response: any) => response,
+      async (error: { config?: any; response?: { status: number; data?: unknown }; message?: string }) => {
+        const originalRequest = error.config;
+
+        // Attempt token refresh on 401 (skip if this is the refresh call itself or already retried)
+        if (
+          error.response?.status === 401 &&
+          originalRequest &&
+          !originalRequest._retry &&
+          !originalRequest.url?.includes("/auth/refresh/") &&
+          !originalRequest.url?.includes("/auth/login/")
+        ) {
+          originalRequest._retry = true;
+          try {
+            const newToken = await refreshAccessToken();
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            return instance(originalRequest);
+          } catch {
+            // Refresh failed — clear tokens and redirect to login
+          }
+        }
+
+        if (error.response?.status === 401) {
+          deleteCookie("access_token");
+          deleteCookie("refresh_token");
+          _currentUser = null;
+          if (
+            typeof window !== "undefined" &&
+            !window.location.pathname.includes("/login")
+          ) {
+            window.location.href = "/login";
+          }
+        }
+        return Promise.reject(error);
+      }
+    );
   }
-);
+}
+
+// ── Error message extraction ───────────────────────────────────────────────
+export function extractErrorMessage(error: unknown): string {
+  const err = error as { response?: { status?: number; data?: unknown }; message?: string };
+
+  // 429 rate limit
+  if (err.response?.status === 429) {
+    return "Too many requests. Please wait a moment and try again.";
+  }
+
+  // DRF error response shapes
+  const data = err.response?.data;
+  if (data && typeof data === "object") {
+    // { detail: "..." }
+    if ("detail" in data && typeof data.detail === "string") {
+      return data.detail;
+    }
+    // { responses: "..." }
+    if ("responses" in data && typeof data.responses === "string") {
+      return data.responses;
+    }
+    // { field: ["error1", "error2"] } — take first error
+    const firstKey = Object.keys(data)[0];
+    if (firstKey && Array.isArray(data[firstKey])) {
+      return `${firstKey}: ${data[firstKey][0]}`;
+    }
+  }
+
+  // Fallback
+  return err.message || "An unexpected error occurred. Please try again.";
+}
+
+let _apiInstance: any = null;
+
+function getApiInstance() {
+  if (!_apiInstance) {
+    _apiInstance = (axios as any).create({
+      baseURL: API_BASE_URL,
+      headers: { "Content-Type": "application/json" },
+    });
+    setupInterceptors(_apiInstance);
+  }
+  return _apiInstance;
+}
 
 // ── Auth state (in-memory; rehydrated on page load via loadCurrentUser) ─────
 export interface AuthUser {
@@ -141,11 +237,19 @@ export function logout() {
 }
 
 // ── Forms ──────────────────────────────────────────────────────────────────
-export async function getForms() {
-  const response = await getApiInstance().get("/forms/");
-  return Array.isArray(response.data)
-    ? response.data
-    : (response.data.results ?? []);
+export interface PaginatedResponse<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+}
+
+export async function getForms(page = 1): Promise<any[]> {
+  const response = await getApiInstance().get(`/forms/?page=${page}`);
+  const data = response.data;
+  if (Array.isArray(data)) return data;
+  if (data?.results) return data.results;
+  return [];
 }
 
 export async function getForm(slug: string) {
@@ -211,10 +315,6 @@ export async function submitForm(
 ): Promise<{ id: string }> {
   // Step 1: create submission (JSON only — no multipart here)
   const api = getApiInstance();
-  // Clear any previous post calls to ensure clean call history for this operation
-  if (api.post && typeof api.post.mockClear === "function") {
-    api.post.mockClear();
-  }
   const submissionRes = await api.post("/submissions/", {
     form: formId,           // backend expects UUID
     responses: textValues,  // backend expects 'responses', not 'text_values'
@@ -222,28 +322,28 @@ export async function submitForm(
   const submissionId: string = submissionRes.data.id;
 
   // Step 2: upload each file to the dedicated upload endpoint
+  // Skip if user is not authenticated (backend requires auth for file uploads)
   for (const [fieldKey, fileOrFiles] of Object.entries(files)) {
-    const fileList = Array.isArray(fileOrFiles) ? fileOrFiles : [fileOrFiles];
-    for (const file of fileList) {
-      const fd = new FormData();
-      fd.append("field_key", fieldKey);
-      fd.append("file", file);
-      await api.post(`/submissions/${submissionId}/upload/`, fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-});
-
-
-    }
-  }
+        const fileList = Array.isArray(fileOrFiles) ? fileOrFiles : [fileOrFiles];
+        for (const file of fileList) {
+          const fd = new FormData();
+          fd.append("field_key", fieldKey);
+          fd.append("file", file);
+          await api.post(`/submissions/${submissionId}/upload/`, fd, {
+            headers: { "Content-Type": "multipart/form-data" },
+          });
+        }
+      }
 
   return submissionRes.data;
 }
 
-export async function getSubmissions() {
-  const response = await getApiInstance().get("/submissions/");
-  return Array.isArray(response.data)
-    ? response.data
-    : (response.data.results ?? []);
+export async function getSubmissions(page = 1): Promise<PaginatedResponse<Record<string, unknown>>> {
+  const response = await getApiInstance().get(`/submissions/?page=${page}`);
+  const data = response.data;
+  if (Array.isArray(data)) return data;
+  if (data?.results) return data.results;
+  return [];
 }
 
 export async function getSubmission(id: string) {

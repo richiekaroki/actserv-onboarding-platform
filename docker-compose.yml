@@ -46,6 +46,13 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/')\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    # Local dev: use runserver for auto-reload. Production image uses gunicorn.
     command: >
       sh -c "python manage.py migrate --noinput &&
              python manage.py runserver 0.0.0.0:8000"
@@ -68,7 +75,7 @@ services:
       redis:
         condition: service_healthy
       django:
-        condition: service_started
+        condition: service_healthy
     command: celery -A actserv_backend worker --loglevel=info --concurrency=2
 
   # ── Next.js frontend ─────────────────────────────────────────────────────
@@ -76,11 +83,11 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api}
     restart: unless-stopped
     ports:
       - "3000:3000"
-    environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
     depends_on:
       - django
     # Only built when frontend/Dockerfile exists — comment out until frontend is ready

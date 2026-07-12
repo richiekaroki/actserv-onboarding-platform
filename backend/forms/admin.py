@@ -3,7 +3,6 @@ import json
 
 from django.contrib import admin, messages
 from django.utils.html import format_html
-from django.utils.safestring import mark_safe
 
 from .models import Field, FileUpload, Form, Submission
 
@@ -35,6 +34,9 @@ class FormAdmin(admin.ModelAdmin):
     list_filter = ('is_active', 'created_at')
     readonly_fields = ('id', 'schema_version', 'created_at', 'updated_at')
     inlines = [FieldInline]
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).prefetch_related('fields', 'submissions')
 
     @admin.display(description='Fields')
     def field_count(self, obj):
@@ -82,6 +84,10 @@ class SubmissionAdmin(admin.ModelAdmin):
     readonly_fields = ('id', 'form', 'submitted_by', 'schema_version', 'created_at', 'pretty_responses')
     actions = [mark_reviewed, mark_approved, mark_rejected]
     inlines = [FileUploadInline]
+    autocomplete_fields = ('form', 'submitted_by')
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('form', 'submitted_by')
 
     # Show 'responses' as pretty-printed JSON, not a raw textarea
     fields = (

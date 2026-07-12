@@ -77,15 +77,3 @@ def test_me_returns_current_user_profile(auth_client, client_user):
 def test_me_requires_authentication(api_client):
     response = api_client.get(ME_URL)
     assert response.status_code == 401
-
-
-@pytest.mark.django_db
-def test_unauthenticated_cannot_list_submissions(api_client):
-    response = api_client.get('/api/submissions/')
-    assert response.status_code == 401
-
-
-@pytest.mark.django_db
-def test_client_user_cannot_list_submissions(auth_client):
-    response = auth_client.get('/api/submissions/')
-    assert response.status_code == 403

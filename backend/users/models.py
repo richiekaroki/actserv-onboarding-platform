@@ -22,10 +22,3 @@ class CustomUser(AbstractUser):
 
     def __str__(self) -> str:
         return f"{self.email} ({self.get_role_display()})"
-
-    def is_admin_user(self) -> bool:
-        """True if this user has admin role or Django staff flag."""
-        return self.role == 'admin' or self.is_staff
-
-    def is_client_user(self) -> bool:
-        return self.role == 'client'

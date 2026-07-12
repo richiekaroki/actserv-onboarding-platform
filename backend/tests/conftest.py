@@ -1,14 +1,10 @@
 # backend/tests/conftest.py
 import pytest
-from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 
 from forms.models import Field, Form
 from users.models import CustomUser
 
-# get_user_model() returns our CustomUser at runtime.
-# Assigning directly to CustomUser gives Pyrefly the concrete type
-# so it can see create_superuser and create_user on the manager.
 User = CustomUser
 
 

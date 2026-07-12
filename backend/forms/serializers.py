@@ -12,20 +12,17 @@ class FieldSerializer(serializers.ModelSerializer):
     class Meta:  # pyrefly: ignore
         model = Field
         fields = '__all__'
-        read_only_fields = ('id',)
+        read_only_fields = ('id', 'form')
 
 
 class FormSerializer(serializers.ModelSerializer):
     fields = FieldSerializer(many=True, read_only=True)  # pyrefly: ignore
-    submission_count = serializers.SerializerMethodField()
+    submission_count = serializers.IntegerField(read_only=True, default=0)
 
     class Meta:  # pyrefly: ignore
         model = Form
         fields = '__all__'
         read_only_fields = ('id', 'created_at', 'updated_at', 'schema_version')
-
-    def get_submission_count(self, obj: Form) -> int:
-        return obj.submissions.count()
 
 
 class FileUploadSerializer(serializers.ModelSerializer):
@@ -64,7 +61,7 @@ class SubmissionSerializer(serializers.ModelSerializer):
         required_fields = (
             form.fields.filter(required=True).exclude(field_type='file').values_list('key', flat=True)
         )
-        missing = [key for key in required_fields if not responses.get(key)]
+        missing = [key for key in required_fields if key not in responses]
         if missing:
             raise serializers.ValidationError({"responses": f"Missing required fields: {', '.join(missing)}"})
 

@@ -5,6 +5,12 @@ from django.conf import settings
 from django.db import models
 
 
+class SoftDeleteManager(models.Manager):
+    """Manager that excludes soft-deleted records by default."""
+    def get_queryset(self):
+        return super().get_queryset().filter(is_deleted=False)
+
+
 class Form(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=200)
@@ -28,13 +34,15 @@ class Form(models.Model):
 class Field(models.Model):
     FIELD_TYPES = [
         ('text',     'Text'),
+        ('email',    'Email'),
+        ('phone',    'Phone'),
         ('number',   'Number'),
+        ('currency', 'Currency'),
         ('date',     'Date'),
+        ('textarea', 'Text Area'),
         ('dropdown', 'Dropdown'),
         ('checkbox', 'Checkbox'),
         ('file',     'File Upload'),
-        ('email',    'Email'),
-        ('textarea', 'Text Area'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -81,8 +89,19 @@ class Submission(models.Model):
     status = models.CharField(
         max_length=50, choices=STATUS_CHOICES, default='submitted', db_index=True
     )
+    is_deleted = models.BooleanField(default=False, db_index=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    objects = SoftDeleteManager()
+    all_objects = models.Manager()
+
+    def soft_delete(self):
+        from django.utils.timezone import now
+        self.is_deleted = True
+        self.deleted_at = now()
+        self.save(update_fields=['is_deleted', 'deleted_at', 'updated_at'])
 
     def __str__(self) -> str:
         return f'Submission {self.id} for {self.form.name}'

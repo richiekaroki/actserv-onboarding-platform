@@ -15,13 +15,17 @@ import { useEffect, useState } from "react";
 export default function Navbar() {
   const pathname = usePathname();
   const [ready, setReady] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Rehydrate the in-memory user from /api/auth/me/ on mount
   useEffect(() => {
     loadCurrentUser().finally(() => setReady(true));
   }, []);
 
-  // Don't render until auth is resolved to avoid a flash of wrong state
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
   if (!ready) return null;
 
   const user = getCurrentUser();
@@ -70,13 +74,14 @@ export default function Navbar() {
             textDecoration: "none",
           }}
         >
-          ActServ
+          Mr.Wam
         </Link>
 
-        {/* Nav links */}
+        {/* Desktop nav links */}
         {authed && (
           <div
-            style={{ display: "flex", gap: "0.25rem", alignItems: "center" }}
+            className="hidden md:flex"
+            style={{ gap: "0.25rem", alignItems: "center" }}
           >
             {navLinks.map((link) => (
               <Link
@@ -99,12 +104,12 @@ export default function Navbar() {
           </div>
         )}
 
-        {/* User area */}
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+        {/* Desktop user area */}
+        <div className="hidden md:flex" style={{ alignItems: "center", gap: "1rem" }}>
           {authed && user ? (
             <>
               <span
-                className="font-mono text-xs hidden sm:block"
+                className="font-mono text-xs"
                 style={{ color: "var(--color-ink-400)" }}
               >
                 {user.email}
@@ -125,23 +130,8 @@ export default function Navbar() {
               )}
               <button
                 onClick={logout}
-                style={{
-                  fontSize: "0.75rem",
-                  color: "var(--color-ink-400)",
-                  border: "1px solid var(--color-ink-200)",
-                  padding: "0.375rem 0.75rem",
-                  background: "transparent",
-                  cursor: "pointer",
-                  transition: "color 0.15s, border-color 0.15s",
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.color = "var(--color-ink-900)";
-                  e.currentTarget.style.borderColor = "var(--color-ink-400)";
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.color = "var(--color-ink-400)";
-                  e.currentTarget.style.borderColor = "var(--color-ink-200)";
-                }}
+                className="btn-secondary"
+                style={{ padding: "0.375rem 0.75rem", fontSize: "0.75rem" }}
               >
                 Sign out
               </button>
@@ -165,7 +155,141 @@ export default function Navbar() {
             </div>
           )}
         </div>
+
+        {/* Mobile hamburger button */}
+        <button
+          className="md:hidden flex items-center justify-center"
+          onClick={() => setMobileOpen(!mobileOpen)}
+          aria-label={mobileOpen ? "Close menu" : "Open menu"}
+          aria-expanded={mobileOpen}
+          style={{
+            width: "44px",
+            height: "44px",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            padding: 0,
+          }}
+        >
+          <svg
+            style={{ width: "24px", height: "24px", color: "var(--color-ink-700)" }}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            {mobileOpen ? (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            )}
+          </svg>
+        </button>
       </div>
+
+      {/* Mobile drawer */}
+      {mobileOpen && (
+        <div
+          className="md:hidden"
+          style={{
+            borderTop: "1px solid var(--color-ink-100)",
+            background: "var(--color-surface-raised)",
+            padding: "0.75rem 1.5rem 1.5rem",
+          }}
+        >
+          {/* Mobile nav links */}
+          {authed && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", marginBottom: "1rem" }}>
+              {navLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  style={{
+                    padding: "0.75rem 1rem",
+                    fontSize: "0.875rem",
+                    color: isActive(link.href)
+                      ? "var(--color-ink-900)"
+                      : "var(--color-ink-400)",
+                    fontWeight: isActive(link.href) ? 500 : 400,
+                    textDecoration: "none",
+                    borderRadius: "4px",
+                    background: isActive(link.href) ? "var(--color-ink-50)" : "transparent",
+                    transition: "background 0.15s, color 0.15s",
+                  }}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+          )}
+
+          {/* Mobile user area */}
+          {authed && user ? (
+            <div
+              style={{
+                paddingTop: "1rem",
+                borderTop: "1px solid var(--color-ink-100)",
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.75rem",
+              }}
+            >
+              <span
+                className="font-mono text-xs"
+                style={{ color: "var(--color-ink-400)" }}
+              >
+                {user.email}
+              </span>
+              <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+                {userIsAdmin && (
+                  <span
+                    className="badge"
+                    style={{
+                      background: "var(--color-ink-50)",
+                      border: "1px solid var(--color-ink-200)",
+                      color: "var(--color-ink-600)",
+                      fontSize: "0.65rem",
+                      letterSpacing: "0.08em",
+                    }}
+                  >
+                    ADMIN
+                  </span>
+                )}
+                <button
+                  onClick={logout}
+                  className="btn-secondary"
+                  style={{ padding: "0.375rem 0.75rem", fontSize: "0.75rem" }}
+                >
+                  Sign out
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div
+              style={{
+                paddingTop: "1rem",
+                borderTop: "1px solid var(--color-ink-100)",
+                display: "flex",
+                gap: "0.75rem",
+              }}
+            >
+              <Link
+                href="/login"
+                className="btn-secondary"
+                style={{ flex: 1, textAlign: "center", padding: "0.75rem", fontSize: "0.8rem" }}
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/register"
+                className="btn-primary"
+                style={{ flex: 1, textAlign: "center", padding: "0.75rem", fontSize: "0.8rem" }}
+              >
+                Register
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
     </nav>
   );
 }

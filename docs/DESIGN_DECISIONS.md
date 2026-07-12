@@ -18,7 +18,7 @@ This document justifies key architectural choices for the dynamic form builder s
 
 **Scalability for Unknown Needs:**
 
-- Assessment states: "The company expects this platform to evolve and scale but they have no clear requirements on how many forms, fields, or rules they will need."
+- "The company expects this platform to evolve and scale but they have no clear requirements on how many forms, fields, or rules they will need."
 - JSON schema allows ANY field configuration without database migrations
 - Adding new field types requires one switch case in FormRenderer - no backend changes
 
@@ -40,7 +40,6 @@ This document justifies key architectural choices for the dynamic form builder s
 
 - UI builder requires significant frontend complexity (drag handlers, field palette, live preview)
 - Would take 2-3 days to build properly
-- Assessment deadline doesn't allow this
 
 **Limited Extensibility:**
 
@@ -109,11 +108,13 @@ This document justifies key architectural choices for the dynamic form builder s
 
 ### Component Architecture:
 
+```
 Schema (JSON)
 → FormRenderer (parser)
 → FieldInput components (text, number, date, dropdown, checkbox, file)
 → react-hook-form (validation)
 → FormData submission (with files)
+```
 
 **Benefits:**
 
@@ -125,8 +126,6 @@ Schema (JSON)
 ---
 
 ## 3. Handling Edge Cases
-
-The assessment specifies 7 edge cases. Here's how each is handled:
 
 ### 1. "Unknown and unbounded number of forms"
 
@@ -173,151 +172,127 @@ The assessment specifies 7 edge cases. Here's how each is handled:
     "message": "Income proof required for loans above 100k"
   }
 }
+```
 
-react-hook-form watch() monitors dependent fields
-Real-time validation evaluation
-Supports operators: gt, gte, lt, lte, eq, ne
+- react-hook-form `watch()` monitors dependent fields
+- Real-time validation evaluation
+- Supports operators: gt, gte, lt, lte, eq, ne
 
-6. "Two forms could have identical field names but different business meanings"
-Solution: Field key is unique per form + submission isolation
+### 6. "Two forms could have identical field names but different business meanings"
 
-Field key scoped to form schema
-Submissions store form reference + responses
-No naming conflicts possible
+**Solution:** Field key is unique per form + submission isolation
 
-7. "Optional fields should not block submissions"
-Solution: required: false default + react-hook-form validation
+- Field key scoped to form schema
+- Submissions store form reference + responses
+- No naming conflicts possible
 
-Only explicitly required fields validated
-Empty optional fields allowed
-Clear visual indicators (asterisks for required)
+### 7. "Optional fields should not block submissions"
 
+**Solution:** `required: false` default + react-hook-form validation
 
-4. File Upload Strategy
-Decision: Client-side validation + server-side verification with multiple file support.
-Why Both Client and Server Validation?
-Client-Side (UX):
+- Only explicitly required fields validated
+- Empty optional fields allowed
+- Clear visual indicators (asterisks for required)
 
-Immediate feedback before upload
-Prevents 5MB+ files from starting upload
-File type checking (PDF, JPG, PNG, DOC, DOCX only)
+---
 
-Server-Side (Security):
+## 4. File Upload Strategy
 
-Never trust client
-Re-validate file types via MIME sniffing
-Enforce storage limits
-Prevent malicious uploads
+**Decision:** Client-side validation + server-side verification with multiple file support.
 
-Implementation:
-Frontend:
-typescriptvalidate: (files: FileList) => {
+### Why Both Client and Server Validation?
+
+**Client-Side (UX):**
+
+- Immediate feedback before upload
+- Prevents 5MB+ files from starting upload
+- File type checking (PDF, JPG, PNG, DOC, DOCX only)
+
+**Server-Side (Security):**
+
+- Never trust client
+- Re-validate file types via MIME sniffing
+- Enforce storage limits
+- Prevent malicious uploads
+
+### Implementation:
+
+**Frontend:**
+
+```typescript
+validate: (files: FileList) => {
   for (let i = 0; i < files.length; i++) {
     if (file.size > 5MB) return "File too large";
     if (!ALLOWED_TYPES.includes(file.type)) return "Invalid type";
   }
 }
-Backend:
+```
 
-FileUpload model with foreign key to Submission
-Files stored with file__<field_key> naming convention
-Media storage configured for production cloud storage migration
+**Backend:**
 
+- FileUpload model with foreign key to Submission
+- Files stored with `file__<field_key>` naming convention
+- Media storage configured for production cloud storage migration
 
-5. Scalability for Unknown Future Needs
-How System Scales:
-New Form Type:
+---
 
-Admin creates JSON schema
-Zero code changes
-Form instantly available at /forms/new-slug
+## 5. Scalability for Unknown Future Needs
 
-New Field Type (e.g., "signature pad"):
+### New Form Type:
 
-Add case to FormRenderer switch statement
-Deploy frontend
-All forms can now use signature fields
+- Admin creates JSON schema
+- Zero code changes
+- Form instantly available at `/forms/new-slug`
 
-New Validation Rule (e.g., "regex pattern"):
+### New Field Type (e.g., "signature pad"):
 
-Extend schema interface: validation: { pattern: string }
-Add validation logic to FieldInput
-Deploy once, available to all forms
+- Add case to FormRenderer switch statement
+- Deploy frontend
+- All forms can now use signature fields
 
-New Operator for Conditional Logic:
+### New Validation Rule (e.g., "regex pattern"):
 
-Add to evaluateConditional function
-Document in schema examples
-No database migration needed
+- Extend schema interface: `validation: { pattern: string }`
+- Add validation logic to FieldInput
+- Deploy once, available to all forms
 
-Database Design:
-Forms Table:
+### New Operator for Conditional Logic:
 
-schema (JSONB in production PostgreSQL)
-Indexed for fast queries
-Supports complex JSON queries
+- Add to `evaluateConditional` function
+- Document in schema examples
+- No database migration needed
 
-Submissions Table:
+### Database Design:
 
-Generic responses JSONB field
-Accepts any form structure
-No ALTER TABLE for new fields
+- **Forms Table:** schema (JSONB in production PostgreSQL), indexed for fast queries
+- **Submissions Table:** Generic responses JSONB field, accepts any form structure, no ALTER TABLE for new fields
+- **FileUploads Table:** Separate table for files, linked via foreign key to submission, scalable to cloud storage (S3, GCS, Azure)
 
-FileUploads Table:
+---
 
-Separate table for files
-Linked via foreign key to submission
-Scalable to cloud storage (S3, GCS, Azure)
+## 6. Technology Choices
 
+- **Frontend:** Next.js 15 + TypeScript — App Router for modern routing, Server Components ready for SSR optimization
+- **Form Library:** react-hook-form — Minimal re-renders, built-in validation, easy file handling
+- **Styling:** Tailwind CSS v4 — Utility-first for rapid development, responsive by default
+- **API Client:** Axios — FormData support for file uploads, request/response interceptors for auth
 
-6. Technology Choices
-Frontend: Next.js 15 + TypeScript
+---
 
-App Router for modern routing
-Server Components ready for SSR optimization
-TypeScript for type safety
+## 7. Production Readiness
 
-Form Library: react-hook-form
+**Current (Development):**
 
-Minimal re-renders (performance)
-Built-in validation
-Easy file handling
+- SQLite database
+- Local file storage
+- Console email backend
 
-Styling: Tailwind CSS v4
+**Production Migration Path:**
 
-Utility-first for rapid development
-Responsive by default
-Small production bundle
-
-API Client: Axios
-
-FormData support for file uploads
-Request/response interceptors for auth
-Better error handling than fetch
-
-
-7. Production Readiness
-Current (Development):
-
-SQLite database
-Local file storage
-Console email backend
-
-Production Migration Path:
-
-PostgreSQL with JSONB indexing
-AWS S3 / Azure Blob Storage
-SendGrid / AWS SES for emails
-Redis for Celery
-Docker containerization
+- PostgreSQL with JSONB indexing
+- AWS S3 / Azure Blob Storage
+- SendGrid / AWS SES for emails
+- Redis for Celery
+- Docker containerization
 
 All designed into architecture from day one.
-
-Summary
-This architecture demonstrates pragmatic engineering:
-✅ Meets all assessment requirements (dynamic forms, file uploads, async notifications)
-✅ Handles all 7 edge cases explicitly
-✅ Scales for unknown future needs (no code changes for new forms)
-✅ Production-ready design (migration path documented)
-✅ Justified choices (JSON editor, schema-driven rendering, client+server validation)
-```

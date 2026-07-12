@@ -93,7 +93,11 @@ export default function ClientFormPage() {
 
   return (
     <div className="min-h-screen py-12 px-4" style={{ background: "var(--color-surface)" }}>
-      <div style={{ maxWidth: "640px", margin: "0 auto" }}>
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-[var(--color-surface)] focus:px-4 focus:py-2 focus:shadow-lg focus:outline-none" style={{ color: "var(--color-ink-900)" }}>
+        Skip to main content
+      </a>
+
+      <main id="main-content" style={{ maxWidth: "640px", margin: "0 auto" }}>
 
         <Link
           href="/forms"
@@ -140,9 +144,7 @@ export default function ClientFormPage() {
               )}
             </div>
 
-            <div className="flex gap-4 mb-8 text-xs font-mono" style={{ color: "var(--color-ink-300)" }}>
-              <span>Schema v{form.schema_version}</span>
-              <span>·</span>
+            <div className="mb-8 text-xs font-mono" style={{ color: "var(--color-ink-300)" }}>
               <span>{form.fields.length} field{form.fields.length !== 1 ? "s" : ""}</span>
             </div>
 
@@ -153,7 +155,7 @@ export default function ClientFormPage() {
             />
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }

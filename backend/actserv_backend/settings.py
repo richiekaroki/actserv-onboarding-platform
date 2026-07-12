@@ -116,9 +116,26 @@ STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+STORAGES = {
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    },
+}
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ===== FILE UPLOAD LIMITS =====
+FILE_UPLOAD_MAX_MEMORY_SIZE = int(os.environ.get('FILE_UPLOAD_MAX_MEMORY_SIZE', 10 * 1024 * 1024))  # 10MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = FILE_UPLOAD_MAX_MEMORY_SIZE
+ALLOWED_UPLOAD_CONTENT_TYPES = [
+    ct.strip()
+    for ct in os.environ.get(
+        'ALLOWED_UPLOAD_CONTENT_TYPES',
+        'application/pdf,image/jpeg,image/png,image/jpg,text/csv,application/vnd.ms-excel',
+    ).split(',')
+]
+MAX_UPLOAD_SIZE = int(os.environ.get('MAX_UPLOAD_SIZE', 10 * 1024 * 1024))  # 10MB per file
 
 # ===== CELERY =====
 _redis_url = os.environ.get('REDIS_URL', '').strip()
@@ -145,6 +162,15 @@ CORS_ALLOWED_ORIGINS = [
     for o in os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:3000').split(',')
 ]
 CORS_ALLOW_CREDENTIALS = True
+
+# Warn if CORS is still pointing at localhost in production
+if not DEBUG and any('localhost' in o for o in CORS_ALLOWED_ORIGINS):
+    import sys
+    print(
+        'WARNING: CORS_ALLOWED_ORIGINS contains localhost but DEBUG=False. '
+        'Set CORS_ALLOWED_ORIGINS to your production frontend domain.',
+        file=sys.stderr,
+    )
 
 # ===== REST FRAMEWORK =====
 REST_FRAMEWORK = {

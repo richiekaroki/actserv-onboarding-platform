@@ -29,6 +29,7 @@ export interface FormFieldDef {
 interface Props {
   fields: FormFieldDef[];
   formId: string;
+  maxFileSize?: number; // in bytes, defaults to 5MB
   onSubmit: (
     formId: string,
     textValues: Record<string, unknown>,
@@ -36,14 +37,14 @@ interface Props {
   ) => Promise<void>;
 }
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+  const DEFAULT_MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB (must match backend MAX_UPLOAD_SIZE)
 const ALLOWED_MIME_TYPES = [
   "application/pdf",
   "image/jpeg",
   "image/png",
   "image/jpg",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "text/csv",
+  "application/vnd.ms-excel",
 ];
 
 function evaluateConditional(
@@ -78,12 +79,14 @@ function evaluateConditional(
 // ── Single field renderer ────────────────────────────────────────────────────
 interface FieldInputProps {
   field: FormFieldDef;
+  allFields: FormFieldDef[];
   register: UseFormRegister<Record<string, unknown>>;
   errors: FieldErrors<Record<string, unknown>>;
   watchedValues: Record<string, unknown>;
+  maxFileBytes: number;
 }
 
-function FieldInput({ field, register, errors, watchedValues }: FieldInputProps) {
+function FieldInput({ field, allFields, register, errors, watchedValues, maxFileBytes }: FieldInputProps) {
   const error = errors[field.key];
 
   const isConditionallyRequired = field.conditional_required
@@ -103,7 +106,7 @@ function FieldInput({ field, register, errors, watchedValues }: FieldInputProps)
     "focus:border-[var(--color-ink-900)] focus:shadow-[0_0_0_1px_var(--color-ink-900)] " +
     (error
       ? "border-red-400 bg-red-50"
-      : "border-[var(--color-ink-200)] bg-white");
+      : "border-[var(--color-ink-200)] bg-[var(--color-surface-raised)]");
 
   // Normalise options to { value, label } shape regardless of source format
   const normaliseOptions = (
@@ -124,7 +127,11 @@ function FieldInput({ field, register, errors, watchedValues }: FieldInputProps)
             <span style={{ color: "var(--color-gold)", marginLeft: "0.25rem" }}>*</span>
           )}
           {isConditionallyRequired && (
-            <span className="ml-2 text-[11px] normal-case tracking-normal text-orange-500">
+            <span
+              className="ml-2 text-[11px] normal-case tracking-normal"
+              style={{ color: "var(--color-status-reviewed)" }}
+              title={`Required when "${allFields.find((f) => f.key === field.conditional_required?.depends_on)?.label ?? field.conditional_required?.depends_on}" ${field.conditional_required?.operator ?? "is"} ${field.conditional_required?.value ?? "provided"}`}
+            >
               (conditionally required)
             </span>
           )}
@@ -204,8 +211,8 @@ function FieldInput({ field, register, errors, watchedValues }: FieldInputProps)
                 const fl = files as FileList;
                 if (!fl || fl.length === 0) return isRequired ? requiredMsg : true;
                 for (let i = 0; i < fl.length; i++) {
-                  if (fl[i].size > MAX_FILE_SIZE)
-                    return `"${fl[i].name}" exceeds the 5 MB limit`;
+                  if (fl[i].size > maxFileBytes)
+                    return `"${fl[i].name}" exceeds the ${Math.round(maxFileBytes / 1024 / 1024)} MB limit`;
                   if (!ALLOWED_MIME_TYPES.includes(fl[i].type))
                     return `"${fl[i].name}" is not an allowed file type (PDF, JPG, PNG, DOC, DOCX)`;
                 }
@@ -233,7 +240,8 @@ function FieldInput({ field, register, errors, watchedValues }: FieldInputProps)
 }
 
 // ── Main renderer ────────────────────────────────────────────────────────────
-export default function FormRenderer({ fields, formId, onSubmit }: Props) {
+export default function FormRenderer({ fields, formId, maxFileSize, onSubmit }: Props) {
+  const maxFileBytes = maxFileSize ?? DEFAULT_MAX_FILE_SIZE;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
@@ -312,9 +320,11 @@ export default function FormRenderer({ fields, formId, onSubmit }: Props) {
           <FieldInput
             key={field.id}
             field={field}
+            allFields={sortedFields}
             register={register as UseFormRegister<Record<string, unknown>>}
             errors={errors}
             watchedValues={watchedValues}
+            maxFileBytes={maxFileBytes}
           />
         ))}
 

@@ -53,7 +53,10 @@ class RegisterClientSerializer(serializers.Serializer):
     last_name = serializers.CharField(required=False, allow_blank=True)
 
     def validate_email(self, value):
-        return value.lower().strip()
+        value = value.lower().strip()
+        if CustomUser.objects.filter(email=value).exists():
+            raise serializers.ValidationError('A user with this email already exists.')
+        return value
 
     def validate_password(self, value):
         from django.contrib.auth.password_validation import validate_password
@@ -61,7 +64,6 @@ class RegisterClientSerializer(serializers.Serializer):
         return value
 
     def create(self, validated_data):
-        from .models import CustomUser
         return CustomUser.objects.create_user(
             username=validated_data['email'],
             email=validated_data['email'],
@@ -70,6 +72,3 @@ class RegisterClientSerializer(serializers.Serializer):
             last_name=validated_data.get('last_name', ''),
             role='client',
         )
-
-class MarkAllReadResponseSerializer(serializers.Serializer):
-    marked_read = serializers.IntegerField()

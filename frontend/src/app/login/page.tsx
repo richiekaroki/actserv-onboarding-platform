@@ -31,31 +31,21 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex" style={{ background: "var(--color-surface)" }}>
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-white focus:px-4 focus:py-2 focus:shadow-lg focus:outline-none" style={{ color: "var(--color-ink-900)" }}>
+        Skip to main content
+      </a>
 
       {/* ── Left panel ── */}
       <div
         className="hidden lg:flex lg:w-1/2 flex-col justify-between p-16 relative overflow-hidden"
         style={{ background: "var(--color-ink-900)" }}
       >
-        <div
-          className="absolute inset-0 opacity-[0.04]"
-          style={{
-            backgroundImage:
-              "linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)",
-            backgroundSize: "60px 60px",
-          }}
-        />
-        <div
-          className="absolute top-0 left-0 h-full"
-          style={{ width: "3px", background: "var(--color-gold)" }}
-        />
-
         <div className="relative">
           <div
             className="text-xs font-mono tracking-widest uppercase mb-12"
             style={{ color: "var(--color-gold)" }}
           >
-            ActServ Africa
+            Mr.Wam Africa
           </div>
           <h1
             className="text-6xl font-semibold leading-tight"
@@ -79,14 +69,14 @@ export default function LoginPage() {
       </div>
 
       {/* ── Right panel ── */}
-      <div className="flex-1 flex items-center justify-center p-8">
+      <main className="flex-1 flex items-center justify-center p-8" id="main-content">
         <div className="w-full max-w-md animate-fade-up">
 
           <div className="mb-10">
             <h2 style={{ fontFamily: "var(--font-display)", fontSize: "2.25rem", color: "var(--color-ink-900)" }}>
               Welcome back
             </h2>
-            <p className="mt-2 text-sm" style={{ color: "var(--color-ink-400)" }}>
+            <p className="mt-2 text-sm" style={{ color: "var(--color-ink-600)" }}>
               Sign in to your account to continue
             </p>
           </div>
@@ -97,19 +87,26 @@ export default function LoginPage() {
               <input
                 id="email"
                 type="email"
+                autoComplete="username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@actserv.com"
+                placeholder="you@mrwam.com"
                 required
                 className="input"
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="label">Password</label>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <label htmlFor="password" className="label" style={{ marginBottom: 0 }}>Password</label>
+                <Link href="/forgot-password" className="text-xs transition-colors" style={{ color: "var(--color-ink-600)" }}>
+                  Forgot your password?
+                </Link>
+              </div>
               <input
                 id="password"
                 type="password"
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
@@ -119,7 +116,7 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <p className="text-sm px-4 py-3 bg-red-50 border border-red-200 text-red-600">
+              <p className="text-sm px-4 py-3 bg-red-50 border border-red-200 text-red-600" role="alert">
                 {error}
               </p>
             )}
@@ -149,16 +146,14 @@ export default function LoginPage() {
             Don&apos;t have an account?{" "}
             <Link
               href="/register"
-              className="underline underline-offset-4 transition-colors"
-              style={{ color: "var(--color-ink-900)" }}
-              onMouseOver={(e) => (e.currentTarget.style.color = "var(--color-gold)")}
-              onMouseOut={(e) => (e.currentTarget.style.color = "var(--color-ink-900)")}
+              className="link-hover"
+              style={{ color: "var(--color-ink-900)", textDecoration: "underline", textUnderlineOffset: "4px", display: "inline-block", padding: "0.5rem 0.25rem" }}
             >
               Register here
             </Link>
           </p>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

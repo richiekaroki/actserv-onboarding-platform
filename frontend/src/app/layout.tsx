@@ -3,11 +3,11 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ActServ — Client Onboarding",
+  title: "Mr.Wam — Client Onboarding",
   description:
     "Dynamic onboarding forms for financial services — KYC, loans, investments, and more.",
   openGraph: {
-    title: "ActServ — Client Onboarding",
+    title: "Mr.Wam — Client Onboarding",
     description:
       "Build and manage dynamic onboarding forms for financial services.",
     type: "website",
@@ -27,6 +27,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="scroll-smooth">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,600&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap"
+          rel="stylesheet"
+        />
+      </head>
       <body className="antialiased">
         {children}
       </body>

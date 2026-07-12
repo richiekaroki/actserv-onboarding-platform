@@ -2,7 +2,6 @@
 import logging
 
 from rest_framework import generics, permissions, status
-from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
 from .models import Notification
@@ -12,8 +11,6 @@ logger = logging.getLogger(__name__)
 
 
 class NotificationListView(generics.ListAPIView):
-    # Return plain list without pagination for API consistency
-    pagination_class = None
     """
     GET /api/notifications/
     Returns all notifications for the authenticated user,
@@ -22,6 +19,8 @@ class NotificationListView(generics.ListAPIView):
     Notifications are created exclusively by Celery tasks —
     clients cannot POST to this endpoint.
     """
+    # Return plain list without pagination for API consistency
+    pagination_class = None
     serializer_class = NotificationSerializer
     permission_classes = [permissions.IsAuthenticated]
 
