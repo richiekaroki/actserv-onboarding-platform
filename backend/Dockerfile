@@ -29,7 +29,7 @@ ENV UV_COMPILE_BYTECODE=1 \
 # Copy dependency manifest and install production deps only
 COPY pyproject.toml .
 RUN uv venv /app/.venv \
-    && uv pip install --no-dev -e .
+    && uv pip install .
 
 # ── Stage 2: runtime ──────────────────────────────────────────────────────────
 FROM python:3.13-slim
