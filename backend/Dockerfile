@@ -1,12 +1,9 @@
 # ===== backend/Dockerfile =====
-# Multi-stage build: builder installs deps, final image copies the venv.
-
-# ── Stage 1: dependency builder ──────────────────────────────────────────────
-FROM python:3.13-slim AS builder
+FROM python:3.13-slim
 
 WORKDIR /app
 
-# Install system libraries needed to compile psycopg2 & image libs
+# System deps for psycopg2 and image handling
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
        build-essential \
@@ -15,15 +12,14 @@ RUN apt-get update \
        python3-dev \
        libjpeg-dev \
        zlib1g-dev \
+       libpq5 \
+       libjpeg62-turbo \
+       zlib1g \
     && rm -rf /var/lib/apt/lists/*
 
-# Create venv and install dependencies
-RUN python -m venv /app/.venv
-ENV PATH="/app/.venv/bin:$PATH"
-
-# Install production dependencies only (skip [dev] extras)
+# Install Python dependencies
 COPY pyproject.toml .
-RUN pip install --no-cache-dir . 2>/dev/null || pip install --no-cache-dir \
+RUN pip install --no-cache-dir \
     django==5.2.6 \
     djangorestframework==3.16.1 \
     djangorestframework-simplejwt==5.5.1 \
@@ -48,27 +44,6 @@ RUN pip install --no-cache-dir . 2>/dev/null || pip install --no-cache-dir \
     sqlparse==0.5.3 \
     packaging==25.0
 
-# ── Stage 2: runtime ──────────────────────────────────────────────────────────
-FROM python:3.13-slim
-
-WORKDIR /app
-
-# Runtime system deps only (no build tools)
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-       libpq5 \
-       libjpeg62-turbo \
-       zlib1g \
-    && rm -rf /var/lib/apt/lists/*
-
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    VIRTUAL_ENV=/app/.venv \
-    PATH="/app/.venv/bin:$PATH"
-
-# Copy the pre-built venv from builder
-COPY --from=builder /app/.venv /app/.venv
-
 # Copy project source
 COPY . .
 
@@ -76,5 +51,4 @@ RUN chmod +x start.sh
 
 EXPOSE 8000
 
-# Run migrations then start gunicorn
 CMD ["./start.sh"]
