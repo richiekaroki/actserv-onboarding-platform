@@ -22,6 +22,13 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'test-secret-key')
 DEBUG = os.getenv('DEBUG', 'True').lower() in ('1', 'true', 'yes')
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
+# Production guards — fail fast if critical env vars are missing
+if not DEBUG:
+    if SECRET_KEY == 'test-secret-key':
+        raise RuntimeError('SECRET_KEY must be set to a secure value in production')
+    if not os.environ.get('DATABASE_URL'):
+        raise RuntimeError('DATABASE_URL must be set in production (SQLite fallback is dev-only)')
+
 # ===== APPS =====
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -151,6 +158,14 @@ CELERY_TIMEZONE = 'Africa/Nairobi'
 if not _redis_url:
     CELERY_TASK_ALWAYS_EAGER = True
     CELERY_TASK_EAGER_PROPAGATES = True
+
+# ── Periodic tasks (Celery Beat) ────────────────────────────────────────────
+CELERY_BEAT_SCHEDULE = {
+    'check-escalating-alerts': {
+        'task': 'notifications.tasks.check_escalating_alerts',
+        'schedule': timedelta(hours=24),  # run every 24 hours
+    },
+}
 
 # Ensure Redis broker is configured in production
 if not DEBUG and not _redis_url:

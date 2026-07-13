@@ -73,6 +73,14 @@ class Submission(models.Model):
         ('rejected',  'Rejected'),
     ]
 
+    ESCALATION_CHOICES = [
+        (0, 'None'),
+        (1, 'Friendly Reminder'),       # day 5
+        (2, 'Urgent Warning'),           # day 8
+        (3, 'Penalty Applied'),          # day 10
+        (4, 'Final Notice'),             # day 15
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     form = models.ForeignKey(
         Form, related_name='submissions', on_delete=models.PROTECT
@@ -89,6 +97,16 @@ class Submission(models.Model):
     status = models.CharField(
         max_length=50, choices=STATUS_CHOICES, default='submitted', db_index=True
     )
+    # ── Deadline & escalation tracking ──────────────────────────────────────
+    due_date = models.DateField(null=True, blank=True, db_index=True,
+        help_text='Deadline for completing this submission')
+    escalation_level = models.IntegerField(
+        choices=ESCALATION_CHOICES, default=0, db_index=True,
+        help_text='Current escalation stage (0=none, 1=reminder, 2=urgent, 3=penalty, 4=final)')
+    penalty_applied_at = models.DateTimeField(null=True, blank=True,
+        help_text='Timestamp when penalty was applied')
+    last_reminder_sent_at = models.DateTimeField(null=True, blank=True,
+        help_text='Timestamp of last escalation notification sent')
     is_deleted = models.BooleanField(default=False, db_index=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

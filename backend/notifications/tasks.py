@@ -1,12 +1,27 @@
 # ===== backend/notifications/tasks.py =====
 import logging
+from datetime import timedelta
 
 from celery import shared_task
 from django.conf import settings
 from django.core.mail import send_mail
-from django.utils.timezone import now
+from django.utils.timezone import now, localtime
 
 logger = logging.getLogger(__name__)
+
+
+# ── Escalation thresholds (days past due_date) ─────────────────────────────
+# Matches the diagram: 5th → friendly, 8th → urgent, 10th → penalty, 15th → final
+ESCALATION_THRESHOLDS = [
+    (5, 1, 'Friendly Reminder',
+     'This is a friendly reminder that your submission is due soon. Please complete it as soon as possible.'),
+    (8, 2, 'Urgent: 2 Days Left!',
+     'Your submission is now overdue. Please complete it within 2 days to avoid a penalty.'),
+    (10, 3, 'Penalty Applied',
+     'A penalty has been applied to your account due to late submission. Please complete your submission immediately.'),
+    (15, 4, 'Final Notice',
+     'This is your final notice. Your submission is significantly overdue and further penalties may apply.'),
+]
 
 
 @shared_task(bind=True, max_retries=3)
@@ -107,4 +122,146 @@ def send_admin_email(self, subject: str, message: str, recipient_list: list[str]
         return "email_sent"
     except Exception as exc:
         logger.exception("Failed to send admin email")
+        raise self.retry(exc=exc, countdown=60)
+
+
+# ── Escalating SMS / notification alerts ────────────────────────────────────
+
+@shared_task
+def check_escalating_alerts() -> str:
+    """Daily task: scan submissions with due_dates and send escalating alerts.
+
+    Escalation timeline (days past due):
+        5  → Friendly reminder
+        8  → Urgent warning
+        10 → Penalty applied
+        15 → Final notice
+    """
+    from django.contrib.auth import get_user_model
+    from forms.models import Submission
+    from .models import Notification
+
+    User = get_user_model()
+    today = localtime().date()
+    processed = 0
+
+    # Only check active submissions that have a due_date and aren't deleted/rejected
+    submissions = Submission.objects.filter(
+        due_date__isnull=False,
+        is_deleted=False,
+    ).exclude(status__in=['rejected', 'approved']).select_related('form', 'submitted_by')
+
+    for sub in submissions:
+        days_overdue = (today - sub.due_date).days
+        if days_overdue < 5:
+            continue  # not yet due for escalation
+
+        # Find the highest threshold we've crossed
+        chosen_level = 0
+        chosen_title = ''
+        chosen_body = ''
+        for threshold_days, level, title, body in ESCALATION_THRESHOLDS:
+            if days_overdue >= threshold_days:
+                chosen_level = level
+                chosen_title = title
+                chosen_body = body
+
+        # Skip if we already sent this level (or a higher one)
+        if sub.escalation_level >= chosen_level:
+            continue
+
+        # ── Apply penalty at level 3 ──────────────────────────────────────
+        if chosen_level >= 3 and sub.penalty_applied_at is None:
+            sub.penalty_applied_at = now()
+            sub.save(update_fields=['penalty_applied_at', 'updated_at'])
+            logger.info("Penalty applied to submission %s", sub.id)
+
+        # ── Create in-app notification ────────────────────────────────────
+        recipients = []
+        if sub.submitted_by:
+            recipients.append(sub.submitted_by)
+        # Also notify admin staff
+        admin_users = User.objects.filter(is_staff=True)
+        recipients.extend(admin_users)
+
+        notifications = [
+            Notification(
+                user=user,
+                type='submission',
+                title=f'[Escalation] {chosen_title}',
+                message=(
+                    f'Form: {sub.form.name}\n'
+                    f'Submission: {sub.id}\n'
+                    f'Due date: {sub.due_date}\n'
+                    f'Days overdue: {days_overdue}\n\n'
+                    f'{chosen_body}'
+                ),
+                related_submission=sub,
+            )
+            for user in recipients
+        ]
+        Notification.objects.bulk_create(notifications)
+
+        # ── Update escalation state ───────────────────────────────────────
+        sub.escalation_level = chosen_level
+        sub.last_reminder_sent_at = now()
+        sub.save(update_fields=[
+            'escalation_level', 'last_reminder_sent_at', 'updated_at',
+        ])
+
+        # ── Send email to submitter ───────────────────────────────────────
+        if sub.submitted_by and sub.submitted_by.email:
+            send_escalation_email.delay(
+                sub.submitted_by.email,
+                sub.form.name,
+                str(sub.id),
+                chosen_title,
+                chosen_body,
+                str(sub.due_date),
+                days_overdue,
+            )
+
+        processed += 1
+        logger.info(
+            "Escalation level %d sent for submission %s (%d days overdue)",
+            chosen_level, sub.id, days_overdue,
+        )
+
+    return f"Processed {processed} escalation(s)"
+
+
+@shared_task(bind=True, max_retries=3)
+def send_escalation_email(
+    self,
+    recipient_email: str,
+    form_name: str,
+    submission_id: str,
+    title: str,
+    body: str,
+    due_date_str: str,
+    days_overdue: int,
+):
+    """Send escalation email to the submitter."""
+    try:
+        subject = f"[TOPMARK SACCO] {title} — {form_name}"
+        message = (
+            f"Dear Member,\n\n"
+            f"{body}\n\n"
+            f"Form:           {form_name}\n"
+            f"Submission ID:  {submission_id}\n"
+            f"Due date:       {due_date_str}\n"
+            f"Days overdue:   {days_overdue}\n\n"
+            f"Please log in to the portal to complete your submission.\n\n"
+            f"Thank you,\nTOPMARK SACCO Team"
+        )
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'no-reply@actserv.local'),
+            recipient_list=[recipient_email],
+            fail_silently=False,
+        )
+        logger.info("Escalation email sent to %s for submission %s", recipient_email, submission_id)
+    except Exception as exc:
+        logger.exception("Failed to send escalation email to %s", recipient_email)
         raise self.retry(exc=exc, countdown=60)
