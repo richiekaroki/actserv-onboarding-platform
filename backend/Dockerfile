@@ -55,7 +55,9 @@ COPY --from=builder /app/.venv /app/.venv
 # Copy project source
 COPY . .
 
+RUN chmod +x start.sh
+
 EXPOSE 8000
 
-# Use gunicorn for production; override with runserver in docker-compose for local dev
-CMD ["gunicorn", "actserv_backend.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "4", "--timeout", "120"]
+# Run migrations then start gunicorn
+CMD ["./start.sh"]
