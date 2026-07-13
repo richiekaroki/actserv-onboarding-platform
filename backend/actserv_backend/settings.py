@@ -15,6 +15,21 @@ try:
 except ImportError:
     pass
 
+# ===== SENTRY (error tracking) =====
+SENTRY_DSN = os.getenv('SENTRY_DSN', '')
+if SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.django import DjangoIntegration
+    from sentry_sdk.integrations.celery import CeleryIntegration
+
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[DjangoIntegration(), CeleryIntegration()],
+        traces_sample_rate=0.1,       # capture 10% of transactions for performance
+        send_default_pii=True,        # attach user info to errors
+        environment='production' if os.getenv('DEBUG', 'True').lower() not in ('1', 'true', 'yes') else 'development',
+    )
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # ===== SECURITY =====

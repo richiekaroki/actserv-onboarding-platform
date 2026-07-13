@@ -27,12 +27,18 @@ dependencies = [
     "kombu==5.5.4",
     "amqp==5.3.1",
     "billiard==4.2.2",
-    "vine==5.1.0",
+    "vine==1.0.3",
 
     # HTTP / middleware
     "django-cors-headers==4.9.0",
     "whitenoise==6.11.0",
     "gunicorn==23.0.0",
+
+    # Monitoring
+    "sentry-sdk==2.35.0",
+
+    # Rate limiting
+    "django-ratelimit==4.1.0",
 
     # Config
     "python-dotenv==1.1.1",

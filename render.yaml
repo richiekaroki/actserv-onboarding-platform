@@ -1,0 +1,49 @@
+# ===== render.yaml =====
+# Render Blueprint — infrastructure-as-code for the backend.
+# Deploy with: render blueprint apply (or connect repo in Render dashboard)
+#
+# What this automates:
+#   - Django web service (Docker)
+#   - PostgreSQL database
+#
+# What requires manual setup (free tier limitation):
+#   - Redis (Upstash free tier — not supported by Render Blueprint)
+#   - Celery worker (Render free tier only allows 1 service)
+#
+# After first deploy, run in Render Shell:
+#   python manage.py migrate --noinput
+#   python manage.py createsuperuser
+
+services:
+  - type: web
+    name: actserv-backend
+    runtime: docker
+    dockerfilePath: backend/Dockerfile
+    dockerContext: backend
+    plan: free
+    healthCheckPath: /
+    envVars:
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        generateValue: true  # Render auto-generates and stores securely
+      - key: DATABASE_URL
+        fromDatabase:
+          name: actserv-db
+          property: connectionString
+      - key: REDIS_URL
+        sync: false  # Must be set manually from Upstash dashboard
+      - key: ALLOWED_HOSTS
+        value: actserv-backend.onrender.com
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://onboarding-frontend.vercel.app
+      - key: DEFAULT_FROM_EMAIL
+        value: no-reply@actserv.local
+      - key: ADMIN_NOTIFICATION_EMAILS
+        value: admin@actserv.local
+
+databases:
+  - name: actserv-db
+    plan: free
+    databaseName: actserv
+    user: actserv
