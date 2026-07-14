@@ -27,7 +27,7 @@ dependencies = [
     "kombu==5.5.4",
     "amqp==5.3.1",
     "billiard==4.2.2",
-    "vine==1.0.3",
+    "vine==5.1.0",
 
     # HTTP / middleware
     "django-cors-headers==4.9.0",

@@ -29,18 +29,12 @@ RUN pip install --no-cache-dir \
     dj-database-url==2.3.0 \
     celery==5.5.3 \
     redis==6.4.0 \
-    kombu==5.5.4 \
-    amqp==5.3.1 \
-    billiard==4.2.2 \
-    vine==1.0.3 \
     django-cors-headers==4.9.0 \
     whitenoise==6.11.0 \
     gunicorn==23.0.0 \
     sentry-sdk==2.35.0 \
     django-ratelimit==4.1.0 \
     python-dotenv==1.1.1 \
-    python-dateutil==2.9.0.post0 \
-    tzdata==2025.2 \
     sqlparse==0.5.3 \
     packaging==25.0
 
