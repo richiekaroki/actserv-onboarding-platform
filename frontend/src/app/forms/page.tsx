@@ -1,7 +1,7 @@
 // frontend/src/app/forms/page.tsx
 "use client";
 
-import { getForms, getCurrentUser, loadCurrentUser, logout } from "@/lib/api";
+import { getForms, getCurrentUser, loadCurrentUser, logout, isAuthenticated } from "@/lib/api";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -19,10 +19,12 @@ export default function FormsList() {
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState<string | null>(null);
   const [networkError, setNetworkError] = useState(false);
+  const [authed, setAuthed] = useState(false);
 
   useEffect(() => {
     loadCurrentUser().then((user) => {
       if (user) setUserName(user.first_name || user.email);
+      setAuthed(isAuthenticated());
     });
 
     getForms()
@@ -52,13 +54,23 @@ export default function FormsList() {
                 : "Select a form below to begin your submission"}
             </p>
           </div>
-          <button
-            onClick={logout}
-            className="text-xs font-mono tracking-widest uppercase transition-colors"
-            style={{ color: "var(--color-ink-400)", background:"none", border:"none", cursor:"pointer" }}
-          >
-            Sign out
-          </button>
+          {authed ? (
+            <button
+              onClick={logout}
+              className="text-xs font-mono tracking-widest uppercase transition-colors"
+              style={{ color: "var(--color-ink-400)", background:"none", border:"none", cursor:"pointer" }}
+            >
+              Sign out
+            </button>
+          ) : (
+            <Link
+              href="/login"
+              className="text-xs font-mono tracking-widest uppercase transition-colors"
+              style={{ color: "var(--color-ink-400)", textDecoration:"none" }}
+            >
+              Sign in
+            </Link>
+          )}
         </div>
 
         {/* Loading skeleton */}
