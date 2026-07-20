@@ -231,7 +231,7 @@ REST_FRAMEWORK = {
 
 # ===== API DOCS =====
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'ActServ Onboarding API',
+    'TITLE': 'Mr.Wam Onboarding API',
     'DESCRIPTION': 'Dynamic form onboarding platform for financial services',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,

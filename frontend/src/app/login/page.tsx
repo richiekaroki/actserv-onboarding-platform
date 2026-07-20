@@ -45,7 +45,7 @@ export default function LoginPage() {
             className="text-xs font-mono tracking-widest uppercase mb-12"
             style={{ color: "var(--color-gold)" }}
           >
-            Mr.Wam Africa
+            Mr.Wam Ltd
           </div>
           <h1
             className="text-6xl font-semibold leading-tight"

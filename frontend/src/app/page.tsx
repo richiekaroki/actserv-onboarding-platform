@@ -348,7 +348,7 @@ export default function HomePage() {
         </span>
         <span style={{ fontSize:"0.7rem", color:"var(--color-ink-inverse-dim)",
           letterSpacing:"0.08em", fontFamily:"'DM Sans',sans-serif" }}>
-          © {new Date().getFullYear()} Mr.Wam Africa
+          © {new Date().getFullYear()} Mr.Wam Ltd
         </span>
       </footer>
     </div>

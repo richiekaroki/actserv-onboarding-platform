@@ -20,7 +20,7 @@ def health_check(request):
     """Simple liveness probe — useful for Docker / load balancers."""
     return JsonResponse({
         "status": "ok",
-        "service": "actserv-backend",
+        "service": "mrwam-backend",
         "version": "1.0.0",
     })
 

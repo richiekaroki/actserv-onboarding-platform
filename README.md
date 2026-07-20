@@ -1,45 +1,135 @@
-# ActServ Onboarding Platform
+# Mr.Wam Onboarding Platform
 
-Creative Dynamic Onboarding Form System for financial services.
-Built with Django REST Framework + Next.js + Celery + Redis.
+> Dynamic form management system for financial services — streamlining KYC, loan applications, and investment declarations through configurable onboarding workflows.
 
-## Quick Start
+---
 
-```bash
-git clone https://github.com/richiekaroki/actserv-onboarding-platform.git
-cd actserv-onboarding-platform
-docker-compose up --build
-```
+## Overview
 
-- Backend API: http://localhost:8000
-- Frontend: http://localhost:3000
-- API Docs: http://localhost:8000/api/schema/swagger-ui/
-- Admin Panel: http://localhost:8000/admin/
+Mr.Wam is a full-stack onboarding platform that enables financial services firms to create, distribute, and manage dynamic forms for client onboarding. Admins build custom forms with a visual configuration interface, share them via unique links, and review submissions with real-time status tracking.
 
-## Key Features
+**Live Demo:** [onboarding-frontend.vercel.app](https://onboarding-frontend.vercel.app)
 
-- Dynamic Forms — Admin-configurable forms with JSON schema
-- Form Submissions — Client submission with file uploads
-- Async Notifications — Celery + Redis email notifications
-- JWT Authentication — Secure API access
-- API-First Design — Full REST API with Swagger docs
-- Professional Testing — 88%+ test coverage with pytest
-- Production Ready — PostgreSQL, Docker, scalable architecture
+---
 
 ## Tech Stack
 
-- Backend: Django 5.2, Django REST Framework, Celery, Redis
-- Frontend: Next.js 15, React, TypeScript
-- Database: PostgreSQL (production), SQLite (development)
-- Testing: pytest, coverage.py, Django test client
-- DevOps: Docker, Docker Compose
+| Layer | Technology |
+|-------|-----------|
+| Frontend | Next.js 16, React, TypeScript, Tailwind CSS |
+| Backend | Django 5.2, Django REST Framework, Celery |
+| Database | PostgreSQL (Render / Neon.tech) |
+| Cache | Redis (Upstash) |
+| Auth | JWT (SimpleJWT) |
+| Hosting | Vercel (frontend), Render (backend) |
+
+---
+
+## Features
+
+- **Dynamic Form Builder** — Admin-configurable forms with JSON schema, supporting text, select, file upload, and currency fields
+- **Form Sharing** — Unique slug-based URLs for each form, accessible to authenticated clients
+- **Submission Management** — Real-time status tracking (submitted, reviewed, approved, rejected)
+- **Escalating Alerts** — Automated email reminders at 5, 8, 10, and 15-day deadlines
+- **JWT Authentication** — Secure API access with token refresh
+- **Responsive Design** — Mobile-first interface across all screen sizes
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Python 3.10+
+- Node.js 18+
+- Redis (for Celery broker)
+- PostgreSQL (or SQLite for development)
+
+### Local Development
+
+```bash
+# Clone the repository
+git clone https://github.com/richiekaroki/actserv-onboarding-platform.git
+cd actserv-onboarding-platform
+
+# Start with Docker
+docker-compose up --build
+```
+
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:3000 |
+| Backend API | http://localhost:8000 |
+| API Docs (Swagger) | http://localhost:8000/api/schema/swagger/ |
+| Django Admin | http://localhost:8000/admin/ |
+
+### Production
+
+| Service | URL |
+|---------|-----|
+| Frontend | https://onboarding-frontend.vercel.app |
+| Backend | https://actserv-backend.onrender.com |
+
+**Default Admin Credentials:**
+- Email: `admin@actserv.local`
+- Password: `admin1234!`
+
+---
+
+## API Documentation
+
+The backend exposes a RESTful API documented with Swagger UI and ReDoc.
+
+### Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/auth/login/` | Obtain JWT tokens |
+| POST | `/api/auth/register/` | Register new client |
+| GET | `/api/forms/` | List active forms |
+| POST | `/api/forms/` | Create form (admin) |
+| GET | `/api/submissions/` | List submissions (admin) |
+| POST | `/api/submissions/` | Submit form response |
+| PATCH | `/api/submissions/{id}/status/` | Update status (admin) |
+
+### Testing with Swagger
+
+1. Navigate to [Django Admin](https://actserv-backend.onrender.com/admin/) and log in
+2. Open [Swagger UI](https://actserv-backend.onrender.com/api/schema/swagger/)
+3. Test endpoints directly — your browser session is authenticated
+
+---
+
+## Project Structure
+
+```
+actserv-onboarding-platform/
+├── backend/
+│   ├── actserv_backend/    # Django project settings
+│   ├── forms/              # Form & submission models, views, serializers
+│   ├── notifications/      # Email alerts & escalation logic
+│   └── users/              # Authentication & user management
+├── frontend/
+│   └── src/
+│       ├── app/            # Next.js pages (admin, forms, login)
+│       ├── components/     # React components (FormRenderer, Navbar)
+│       └── lib/            # API client & utilities
+├── docs/                   # Technical documentation
+├── docker-compose.yml
+├── render.yaml
+└── README.md
+```
+
+---
 
 ## Documentation
 
-See [docs/](docs/) for detailed documentation:
-
 - [SETUP.md](docs/SETUP.md) — Local development & Docker instructions
 - [TESTING.md](docs/TESTING.md) — Test suite & coverage reports
-- [DESIGN_DECISIONS.md](docs/DESIGN_DECISIONS.md) — Architecture choices & reasoning
-- [DESIGN.md](docs/DESIGN.md) — Design system: colors, typography, components
-- [API_REFERENCE.md](docs/API_REFERENCE.md) — Full list of backend endpoints
+- [API_REFERENCE.md](docs/API_REFERENCE.md) — Full endpoint reference
+
+---
+
+## License
+
+Proprietary — Mr.Wam Ltd

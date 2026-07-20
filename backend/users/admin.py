@@ -16,7 +16,7 @@ class CustomUserAdmin(UserAdmin):
     search_fields = ('email', 'first_name', 'last_name', 'employee_id')
 
     fieldsets = _base_fieldsets + (
-        ('ActServ Profile', {
+        ('Mr.Wam Profile', {
             'fields': ('role', 'phone', 'department', 'employee_id')
         }),
     )
