@@ -70,7 +70,11 @@ docker-compose up --build
 | Frontend | https://onboarding-frontend.vercel.app |
 | Backend | https://actserv-backend.onrender.com |
 
-> **Testing?** An admin account is auto-created on first deploy. Check the backend `create_default_admin` management command in `users/management/commands/` for details.
+**Test Credentials (auto-created on first deploy):**
+- Email: `admin@actserv.local`
+- Password: `admin1234!`
+
+> These are demo-only credentials for testing the admin dashboard.
 
 ## API Documentation
 
