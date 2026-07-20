@@ -66,7 +66,7 @@ export default function Navbar() {
       >
         {/* Logo */}
         <Link
-          href={userIsAdmin ? "/admin" : "/forms"}
+          href="/"
           style={{
             fontFamily: "var(--font-display)",
             fontSize: "1.5rem",

@@ -230,9 +230,9 @@ const [formsRes, subsRes, notifsData] = await Promise.all([
           justifyContent: "space-between",
         }}
       >
-        <span style={{ fontFamily: "var(--font-display)", fontSize: "1.5rem", color: "var(--color-ink-900)" }}>
-          Mr.Wam Admin
-        </span>
+        <Link href="/" style={{ fontFamily: "var(--font-display)", fontSize: "1.5rem", color: "var(--color-ink-900)", textDecoration: "none" }}>
+          Mr.Wam
+        </Link>
         <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
           <Link href="/admin/forms/create" className="btn-primary" style={{ padding: "0.5rem 1rem", fontSize: "0.8rem" }}>
             + New Form
