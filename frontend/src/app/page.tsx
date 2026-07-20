@@ -1,7 +1,7 @@
 // frontend/src/app/page.tsx
 "use client";
 
-import { isAdmin, isAuthenticated } from "@/lib/api";
+import { isAdmin, isAuthenticated, logout } from "@/lib/api";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -50,11 +50,12 @@ export default function HomePage() {
                     letterSpacing:"0.1em", textTransform:"uppercase", textDecoration:"none", transition:"color 0.2s" }}>
                   {admin ? "Dashboard" : "My Forms"}
                 </Link>
-                <Link href="/login" className="nav-link"
+                <button onClick={logout}
                   style={{ fontSize:"0.72rem", color:"var(--color-ink-inverse-dim)",
-                    letterSpacing:"0.1em", textTransform:"uppercase", textDecoration:"none", transition:"color 0.2s" }}>
+                    letterSpacing:"0.1em", textTransform:"uppercase", textDecoration:"none", transition:"color 0.2s",
+                    background:"none", border:"none", cursor:"pointer", padding:0 }}>
                   Sign out
-                </Link>
+                </button>
               </>
             ) : (
               <>
@@ -104,12 +105,13 @@ export default function HomePage() {
                     textDecoration:"none", borderRadius:"4px", transition:"background 0.15s" }}>
                   {admin ? "Dashboard" : "My Forms"}
                 </Link>
-                <Link href="/login" className="nav-link"
+                <button onClick={logout}
                   style={{ fontSize:"0.8rem", color:"var(--color-ink-inverse-dim)",
                     padding:"0.75rem 1rem", letterSpacing:"0.1em", textTransform:"uppercase",
-                    textDecoration:"none", borderRadius:"4px", transition:"background 0.15s" }}>
+                    textDecoration:"none", borderRadius:"4px", transition:"background 0.15s",
+                    background:"none", border:"none", cursor:"pointer", width:"100%" }}>
                   Sign out
-                </Link>
+                </button>
               </div>
             ) : (
               <div style={{ display:"flex", flexDirection:"column", gap:"0.5rem" }}>

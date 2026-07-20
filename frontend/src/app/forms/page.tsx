@@ -1,7 +1,7 @@
 // frontend/src/app/forms/page.tsx
 "use client";
 
-import { getForms, getCurrentUser, loadCurrentUser } from "@/lib/api";
+import { getForms, getCurrentUser, loadCurrentUser, logout } from "@/lib/api";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -52,13 +52,13 @@ export default function FormsList() {
                 : "Select a form below to begin your submission"}
             </p>
           </div>
-          <Link
-            href="/login"
+          <button
+            onClick={logout}
             className="text-xs font-mono tracking-widest uppercase transition-colors"
-            style={{ color: "var(--color-ink-400)" }}
+            style={{ color: "var(--color-ink-400)", background:"none", border:"none", cursor:"pointer" }}
           >
             Sign out
-          </Link>
+          </button>
         </div>
 
         {/* Loading skeleton */}
