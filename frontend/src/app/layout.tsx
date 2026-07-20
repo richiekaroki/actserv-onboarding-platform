@@ -3,15 +3,29 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Mr.Wam — Client Onboarding",
+  metadataBase: new URL("https://onboarding-frontend.vercel.app"),
+  title: {
+    default: "Mr.Wam — Client Onboarding Platform",
+    template: "%s | Mr.Wam",
+  },
   description:
     "Dynamic onboarding forms for financial services — KYC, loans, investments, and more.",
   openGraph: {
-    title: "Mr.Wam — Client Onboarding",
+    title: "Mr.Wam — Client Onboarding Platform",
     description:
       "Build and manage dynamic onboarding forms for financial services.",
     type: "website",
     locale: "en_US",
+    url: "https://onboarding-frontend.vercel.app",
+  },
+  twitter: {
+    card: "summary",
+    title: "Mr.Wam — Client Onboarding Platform",
+    description:
+      "Dynamic onboarding forms for financial services — KYC, loans, investments.",
+  },
+  icons: {
+    icon: "/favicon.ico",
   },
 };
 
