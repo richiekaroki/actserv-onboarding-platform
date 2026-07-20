@@ -31,7 +31,8 @@ function setCookie(name: string, value: string, days = 1) {
 }
 
 function deleteCookie(name: string) {
-  document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+  const secure = typeof window !== "undefined" && window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Strict${secure}`;
 }
 
 // ── Token refresh ──────────────────────────────────────────────────────────
@@ -232,6 +233,7 @@ export function logout() {
   deleteCookie("access_token");
   deleteCookie("refresh_token");
   _currentUser = null;
+  // Use hard redirect to ensure full page reset and clear all in-memory state
   if (typeof window !== "undefined") {
     window.location.href = "/login";
   }

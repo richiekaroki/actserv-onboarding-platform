@@ -41,12 +41,13 @@ export default function LoginPage() {
         style={{ background: "var(--color-ink-900)" }}
       >
         <div className="relative">
-          <div
+          <Link
+            href="/"
             className="text-xs font-mono tracking-widest uppercase mb-12"
-            style={{ color: "var(--color-gold)" }}
+            style={{ color: "var(--color-gold)", textDecoration: "none", display: "block" }}
           >
             Mr.Wam Ltd
-          </div>
+          </Link>
           <h1
             className="text-6xl font-semibold leading-tight"
             style={{ fontFamily: "var(--font-display)", color: "white" }}
