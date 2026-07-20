@@ -1,6 +1,14 @@
-# Mr.Wam Onboarding Platform
+<h1 align="center">Mr.Wam Onboarding Platform</h1>
 
-> Dynamic form management system for financial services — streamlining KYC, loan applications, and investment declarations through configurable onboarding workflows.
+<p align="center">
+  Dynamic form management for financial services — KYC, loan applications, and investment declarations.
+</p>
+
+<p align="center">
+  <a href="https://onboarding-frontend.vercel.app">Live Demo</a> ·
+  <a href="https://actserv-backend.onrender.com/api/schema/swagger/">API Docs</a> ·
+  <a href="docs/SETUP.md">Setup Guide</a>
+</p>
 
 ---
 
@@ -8,22 +16,16 @@
 
 Mr.Wam is a full-stack onboarding platform that enables financial services firms to create, distribute, and manage dynamic forms for client onboarding. Admins build custom forms with a visual configuration interface, share them via unique links, and review submissions with real-time status tracking.
 
-**Live Demo:** [onboarding-frontend.vercel.app](https://onboarding-frontend.vercel.app)
-
----
-
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
 | Frontend | Next.js 16, React, TypeScript, Tailwind CSS |
 | Backend | Django 5.2, Django REST Framework, Celery |
-| Database | PostgreSQL (Render / Neon.tech) |
+| Database | PostgreSQL (Neon.tech) |
 | Cache | Redis (Upstash) |
 | Auth | JWT (SimpleJWT) |
 | Hosting | Vercel (frontend), Render (backend) |
-
----
 
 ## Features
 
@@ -33,8 +35,6 @@ Mr.Wam is a full-stack onboarding platform that enables financial services firms
 - **Escalating Alerts** — Automated email reminders at 5, 8, 10, and 15-day deadlines
 - **JWT Authentication** — Secure API access with token refresh
 - **Responsive Design** — Mobile-first interface across all screen sizes
-
----
 
 ## Getting Started
 
@@ -74,8 +74,6 @@ docker-compose up --build
 - Email: `admin@actserv.local`
 - Password: `admin1234!`
 
----
-
 ## API Documentation
 
 The backend exposes a RESTful API documented with Swagger UI and ReDoc.
@@ -98,8 +96,6 @@ The backend exposes a RESTful API documented with Swagger UI and ReDoc.
 2. Open [Swagger UI](https://actserv-backend.onrender.com/api/schema/swagger/)
 3. Test endpoints directly — your browser session is authenticated
 
----
-
 ## Project Structure
 
 ```
@@ -120,15 +116,11 @@ actserv-onboarding-platform/
 └── README.md
 ```
 
----
-
 ## Documentation
 
 - [SETUP.md](docs/SETUP.md) — Local development & Docker instructions
 - [TESTING.md](docs/TESTING.md) — Test suite & coverage reports
 - [API_REFERENCE.md](docs/API_REFERENCE.md) — Full endpoint reference
-
----
 
 ## License
 

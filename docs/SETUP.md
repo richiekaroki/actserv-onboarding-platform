@@ -1,24 +1,22 @@
 # Setup Instructions
 
-These instructions explain how to set up and run the Creative Dynamic Onboarding Form System locally.
-The project consists of a Django REST Framework backend and a Next.js frontend, with Celery for async tasks.
+How to set up and run the Mr.Wam Onboarding Platform locally.
 
 ---
 
-## 1. Prerequisites
+## Prerequisites
 
 - **Python 3.10+**
 - **Node.js 18+**
-- **npm** or **yarn**
 - **Redis** (for Celery broker)
-- **PostgreSQL 14+** (SQLite can be used locally for quick testing)
+- **PostgreSQL 14+** (or SQLite for local dev)
 - **Git**
 
 Optional: Docker & Docker Compose
 
 ---
 
-## 2. Clone Repository
+## Clone Repository
 
 ```bash
 git clone https://github.com/richiekaroki/actserv-onboarding-platform.git
@@ -27,28 +25,22 @@ cd actserv-onboarding-platform
 
 ---
 
-## 3. Backend Setup (Django + DRF)
-
-Create and activate virtual environment:
+## Backend Setup
 
 ```bash
 cd backend
 python -m venv .venv
 
-# Linux/Mac:
+# Linux/Mac
 source .venv/bin/activate
 
-# Windows:
+# Windows
 .venv\Scripts\activate
+
+pip install -e .
 ```
 
-Install dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-Environment variables — create a `.env` file inside `backend/`:
+Create `backend/.env`:
 
 ```
 SECRET_KEY=your_django_secret_key_here
@@ -56,86 +48,88 @@ DEBUG=True
 DATABASE_URL=sqlite:///db.sqlite3
 REDIS_URL=redis://localhost:6379/0
 EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+ALLOWED_HOSTS=localhost,127.0.0.1
+CORS_ALLOWED_ORIGINS=http://localhost:3000
 ```
 
-Database setup:
+Run migrations and start:
 
 ```bash
 python manage.py migrate
-python manage.py createsuperuser
-```
-
-Run backend server:
-
-```bash
+python manage.py create_default_admin
 python manage.py runserver
 ```
 
-API available at: http://localhost:8000/api/
+Backend: http://localhost:8000
+API Docs: http://localhost:8000/api/schema/swagger/
 
 ---
 
-## 4. Celery Worker
-
-Open a new terminal, activate the virtual environment, and run:
+## Frontend Setup
 
 ```bash
-cd backend
-celery -A actserv_backend worker -l info
-```
-
-This will listen for new submission notifications.
-
----
-
-## 5. Frontend Setup (Next.js)
-
-```bash
-cd ../frontend
+cd frontend
 npm install
 npm run dev
 ```
 
-Frontend available at: http://localhost:3000/
+Frontend: http://localhost:3000
 
 ---
 
-## 6. Running with Docker (Optional)
-
-If using Docker, ensure Docker and Docker Compose are installed, then run:
+## Docker Setup (Optional)
 
 ```bash
 docker-compose up --build
 ```
 
-This will start:
-
-- Django backend (port 8000)
-- Next.js frontend (port 3000)
-- PostgreSQL (port 5432)
-- Redis (port 6379)
+Services:
+- Django backend → http://localhost:8000
+- Next.js frontend → http://localhost:3000
+- Redis → localhost:6379
 
 ---
 
-## 7. Testing
+## Production
 
-### Backend Tests
+| Service | URL | Hosting |
+|---------|-----|---------|
+| Frontend | https://onboarding-frontend.vercel.app | Vercel |
+| Backend | https://actserv-backend.onrender.com | Render |
+| Database | Neon.tech PostgreSQL | Neon.tech |
+| Cache | Upstash Redis | Upstash |
+
+### Environment Variables (Render)
+
+```
+DEBUG=False
+SECRET_KEY=<your-production-secret>
+DATABASE_URL=postgresql://<neon-connection-string>
+REDIS_URL=<upstash-redis-url>
+ALLOWED_HOSTS=actserv-backend.onrender.com
+CORS_ALLOWED_ORIGINS=https://onboarding-frontend.vercel.app
+DEFAULT_FROM_EMAIL=no-reply@actserv.local
+ADMIN_NOTIFICATION_EMAILS=admin@actserv.local
+```
+
+### Default Admin Credentials
+
+- Email: `admin@actserv.local`
+- Password: `admin1234!`
+
+---
+
+## Testing
+
+### Backend
 
 ```bash
 cd backend
-
-# Run all tests
-pytest
-
-# Run with coverage report
-pytest --cov --cov-report=term-missing
-
-# Generate HTML coverage report
-pytest --cov --cov-report=html
-# Then open: htmlcov/index.html
+pytest                          # Run all tests
+pytest --cov --cov-report=html  # Coverage report
 ```
 
-### Frontend Tests
+### Frontend
 
 ```bash
 cd frontend
@@ -144,21 +138,9 @@ npm run test
 
 ---
 
-## 8. Demo Script
+## Notes
 
-1. Log in as admin: http://localhost:8000/admin/
-2. Create a form (e.g., KYC form with file upload) via `/api/forms/`
-3. Visit client form page, fill details, upload file, submit
-4. Verify:
-   - Submission appears in backend
-   - File is uploaded to `backend/media/`
-   - Celery worker logs show admin notification
-
----
-
-## 9. Notes
-
-- Default file uploads are stored in `backend/media/`
-- For production, configure storage in `.env` (e.g., AWS S3)
-- This project uses PostgreSQL for production but supports SQLite for quick local testing
-- API documentation available at: http://localhost:8000/api/schema/swagger-ui/
+- Local dev uses SQLite (no PostgreSQL setup needed)
+- Production uses Neon.tech PostgreSQL (free tier, no expiration)
+- File uploads stored locally in `backend/media/` (production uses Supabase Storage when configured)
+- API documentation available at `/api/schema/swagger/`

@@ -1,97 +1,102 @@
 # Testing Guide
 
-## Test Suite Overview
+## Overview
 
-- **Status:** Complete
+- **Framework:** pytest + pytest-django (backend), Jest (frontend)
+- **Visual Testing:** Playwright MCP (browser automation)
 - **Coverage:** 88%+
-- **Tests Passing:** 17/17
-- **Framework:** pytest + pytest-django
 
 ---
 
-## Running Tests
+## Backend Tests
 
 ```bash
-# Navigate to backend
 cd backend
 
-# Run all tests with coverage
+# Run all tests
+pytest
+
+# Run with coverage
 pytest --cov --cov-report=term-missing
 
 # Generate HTML coverage report
 pytest --cov --cov-report=html
 # Open: htmlcov/index.html
 
-# Run specific test categories
+# Run specific test files
 pytest tests/test_forms_api.py -v
+pytest tests/test_auth.py -v
 pytest tests/test_notifications.py -v
 ```
 
----
+### Test Files
 
-## Test Coverage Report
-
-| Module | Coverage | Status |
-|--------|----------|--------|
-| Forms API | 100% | Excellent |
-| Forms Models | 100% | Excellent |
-| Forms Views | 100% | Excellent |
-| Notifications Tasks | 85%+ | Very Good |
-| Authentication | 100% | Excellent |
-| Submissions API | 100% | Excellent |
-| **Overall** | **88%+** | **Production Ready** |
+| File | Tests |
+|------|-------|
+| `tests/test_forms_api.py` | Form CRUD, permissions, field management |
+| `tests/test_auth.py` | JWT login, register, token refresh |
+| `tests/test_submissions_api.py` | Submission creation, file upload, status |
+| `tests/test_notifications.py` | Email alerts, escalation tasks |
+| `tests/test_models.py` | Model methods, relationships |
+| `tests/test_celery_integration.py` | Async task execution |
 
 ---
 
-## Test Categories
+## Frontend Tests
 
-### 1. Forms API Tests
+```bash
+cd frontend
+npm run test
+```
 
-- Public can list forms
-- Admin can create forms
-- Regular users cannot create forms (security)
-- Form permissions enforced
+### Test Files
 
-### 2. Authentication Tests
+| File | Tests |
+|------|-------|
+| `FormRenderer.test.tsx` | Form rendering, field types |
+| `FieldTypes.test.tsx` | Input, select, file, currency fields |
+| `FileValidation.test.tsx` | File size, type validation |
+| `ConditionalValidation.test.tsx` | Conditional field logic |
+| `api.test.ts` | API client functions |
 
-- JWT token obtainment
-- Public vs admin permissions
-- Submission access control
+---
 
-### 3. Model Tests
+## Visual Testing (Playwright)
 
-- String representation methods
-- Model relationships
-- Field validation
+Browser-based testing to verify UI renders correctly across pages and screen sizes.
 
-### 4. Notifications Tests
+### Test Flow
 
-- Celery task execution
-- Email content generation
-- Error handling
-- Response formatting
+1. **Home page** — Verify unauthenticated state shows "Sign in" / "Register"
+2. **Login** — Test logo link, form submission, redirect to admin
+3. **Admin dashboard** — Verify stats, empty state, navigation
+4. **Logout** — Confirm cookies cleared, redirect to login
+5. **Auth guard** — Verify `/admin` blocks access after logout
+6. **Register** — Verify form renders correctly
+7. **Forms page** — Verify "Sign in" shows when unauthenticated
+8. **Mobile** — Test responsive layout at 375px width
 
-### 5. Submissions API Tests
+### Bugs Found and Fixed
 
-- Public form submission
-- Celery task triggering
-- File upload support
+| Bug | Fix |
+|-----|-----|
+| Logout didn't clear cookies | `deleteCookie` now matches `SameSite=Strict` + `Secure` |
+| "Sign out" links didn't call `logout()` | Replaced `<Link>` with `<button onClick={logout}>` |
+| Forms page showed "Sign out" when not logged in | Conditionally render based on auth state |
+| Login logo not clickable | Wrapped in `<Link href="/">` |
 
 ---
 
 ## Test Configuration
 
 **pytest.ini:**
-
 ```ini
 [pytest]
 DJANGO_SETTINGS_MODULE = actserv_backend.settings
 python_files = tests.py test_*.py *_tests.py
-addopts = --cov=. --cov-report=html
 ```
 
 **.coveragerc:**
-
 ```ini
 [run]
 branch = True
@@ -100,34 +105,13 @@ source = backend
 [report]
 show_missing = True
 skip_covered = True
-precision = 2
 ```
-
----
-
-## Test Data and Mocks
-
-- **Model Bakery** — Test data generation
-- **unittest.mock** — Celery task mocking
-- **APIClient** — API endpoint testing
-- **pytest fixtures** — Database setup
 
 ---
 
 ## Quality Gates
 
-- All tests must pass
+- All tests must pass before merge
 - 80%+ coverage required
 - No security permission regressions
-- Async task mocking for reliable tests
-
----
-
-## Coverage Improvement
-
-Areas for future enhancement:
-
-- Integration tests with real Redis
-- Frontend component tests
-- E2E user journey tests
-- Load testing for scalability
+- Visual tests pass on desktop and mobile
