@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import HomePageClient from "./HomePageClient";
 
 export const metadata: Metadata = {
-  title: "Mr.Wam — Client Onboarding Platform",
   description:
     "Dynamic onboarding forms for financial services — KYC, loan applications, investment declarations. SOC 2 compliant, enterprise-grade security.",
   openGraph: {
@@ -15,7 +14,6 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary",
-    title: "Mr.Wam — Client Onboarding Platform",
     description:
       "Dynamic onboarding forms for financial services — KYC, loan applications, investment declarations.",
   },

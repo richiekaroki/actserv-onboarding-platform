@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import LoginClient from "./LoginClient";
 
 export const metadata: Metadata = {
-  title: "Sign In — Mr.Wam",
+  title: "Sign In",
   description:
     "Sign in to your Mr.Wam account to access onboarding forms and track submissions.",
   openGraph: {
